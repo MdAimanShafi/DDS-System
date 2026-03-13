@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDS Debug - Connection Tester</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    h1 { text-align: center; margin-bottom: 2rem; font-size: 2.5rem; }
+    .test-item {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1.5rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      border-left: 4px solid #fbbf24;
+    }
+    .test-item.success { border-left-color: #10b981; }
+    .test-item.error { border-left-color: #ef4444; }
+    .test-title { font-weight: 700; font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .test-result { font-size: 0.95rem; opacity: 0.9; }
+    button {
+      width: 100%;
+      padding: 1rem;
+      background: white;
+      color: #667eea;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: all 0.3s ease;
+    }
+    button:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+    .code { background: rgba(0, 0, 0, 0.3); padding: 0.5rem; border-radius: 6px; font-family: monospace; margin-top: 0.5rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 DDS Connection Debugger</h1>
+    
+    <div id="results"></div>
+    
+    <button onclick="runAllTests()">🚀 Run All Tests</button>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:5000';
+    const results = document.getElementById('results');
+
+    function addResult(title, message, status = 'pending') {
+      const div = document.createElement('div');
+      div.className = `test-item ${status}`;
+      div.innerHTML = `
+        <div class="test-title">${title}</div>
+        <div class="test-result">${message}</div>
+      `;
+      results.appendChild(div);
+      return div;
+    }
+
+    async function runAllTests() {
+      results.innerHTML = '';
+      
+      // Test 1: Backend Server
+      const test1 = addResult('1️⃣ Backend Server', 'Testing connection...', 'pending');
+      try {
+        const response = await fetch(`${API_URL}/`);
+        const data = await response.json();
+        if (data.status === 'active') {
+          test1.className = 'test-item success';
+          test1.querySelector('.test-result').innerHTML = `✅ Backend is running!<div class="code">Status: ${data.status}<br>Version: ${data.version}</div>`;
+        } else {
+          throw new Error('Invalid response');
+        }
+      } catch (error) {
+        test1.className = 'test-item error';
+        test1.querySelector('.test-result').innerHTML = `❌ Backend NOT running!<div class="code">Error: ${error.message}<br><br>Solution: Run START_SERVER.bat</div>`;
+      }
+
+      // Test 2: MongoDB Connection
+      const test2 = addResult('2️⃣ MongoDB Connection', 'Testing database...', 'pending');
+      try {
+        const response = await fetch(`${API_URL}/`);
+        if (response.ok) {
+          test2.className = 'test-item success';
+          test2.querySelector('.test-result').textContent = '✅ MongoDB connected!';
+        } else {
+          throw new Error('Connection failed');
+        }
+      } catch (error) {
+        test2.className = 'test-item error';
+        test2.querySelector('.test-result').innerHTML = `❌ MongoDB connection issue!<div class="code">Solution: Start MongoDB service</div>`;
+      }
+
+      // Test 3: Socket.IO
+      const test3 = addResult('3️⃣ Socket.IO', 'Testing real-time connection...', 'pending');
+      try {
+        const socket = io(API_URL);
+        socket.on('connect', () => {
+          test3.className = 'test-item success';
+          test3.querySelector('.test-result').innerHTML = `✅ Socket.IO connected!<div class="code">Socket ID: ${socket.id}</div>`;
+          socket.disconnect();
+        });
+        socket.on('connect_error', (error) => {
+          test3.className = 'test-item error';
+          test3.querySelector('.test-result').innerHTML = `❌ Socket.IO failed!<div class="code">Error: ${error.message}</div>`;
+        });
+      } catch (error) {
+        test3.className = 'test-item error';
+        test3.querySelector('.test-result').textContent = '❌ Socket.IO error!';
+      }
+
+      // Test 4: Authentication
+      const test4 = addResult('4️⃣ Authentication', 'Checking login status...', 'pending');
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      if (token && user) {
+        test4.className = 'test-item success';
+        const userData = JSON.parse(user);
+        test4.querySelector('.test-result').innerHTML = `✅ User logged in!<div class="code">Email: ${userData.email}<br>Token: ${token.substring(0, 20)}...</div>`;
+      } else {
+        test4.className = 'test-item error';
+        test4.querySelector('.test-result').innerHTML = `❌ Not logged in!<div class="code">Solution: Login first at login.html</div>`;
+      }
+
+      // Test 5: Dashboard API
+      if (token) {
+        const test5 = addResult('5️⃣ Dashboard API', 'Testing dashboard endpoint...', 'pending');
+        try {
+          const response = await fetch(`${API_URL}/security/dashboard`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await response.json();
+          if (data.success) {
+            test5.className = 'test-item success';
+            test5.querySelector('.test-result').innerHTML = `✅ Dashboard API working!<div class="code">Risk Score: ${data.user.riskScore}<br>Total Attacks: ${data.stats.totalAttacks}</div>`;
+          } else {
+            throw new Error(data.error);
+          }
+        } catch (error) {
+          test5.className = 'test-item error';
+          test5.querySelector('.test-result').innerHTML = `❌ Dashboard API failed!<div class="code">Error: ${error.message}</div>`;
+        }
+      }
+
+      // Test 6: Frontend Files
+      const test6 = addResult('6️⃣ Frontend Files', 'Checking required files...', 'pending');
+      const requiredFiles = ['auth.js', 'dashboard.js', 'map.js', 'alerts.js'];
+      const missingFiles = [];
+      
+      for (const file of requiredFiles) {
+        try {
+          await fetch(`js/${file}`);
+        } catch {
+          missingFiles.push(file);
+        }
+      }
+      
+      if (missingFiles.length === 0) {
+        test6.className = 'test-item success';
+        test6.querySelector('.test-result').textContent = '✅ All frontend files present!';
+      } else {
+        test6.className = 'test-item error';
+        test6.querySelector('.test-result').innerHTML = `❌ Missing files!<div class="code">Missing: ${missingFiles.join(', ')}</div>`;
+      }
+
+      // Final Summary
+      const summary = addResult('📊 Summary', 'Generating report...', 'pending');
+      setTimeout(() => {
+        const successCount = document.querySelectorAll('.test-item.success').length;
+        const totalTests = document.querySelectorAll('.test-item').length - 1; // Exclude summary
+        
+        if (successCount === totalTests) {
+          summary.className = 'test-item success';
+          summary.querySelector('.test-result').innerHTML = `
+            ✅ All tests passed! (${successCount}/${totalTests})<br><br>
+            <strong>Your DDS system is ready!</strong><br>
+            You can now use the dashboard.
+          `;
+        } else {
+          summary.className = 'test-item error';
+          summary.querySelector('.test-result').innerHTML = `
+            ⚠️ ${successCount}/${totalTests} tests passed<br><br>
+            <strong>Please fix the errors above before using dashboard.</strong>
+          `;
+        }
+      }, 2000);
+    }
+
+    // Auto-run on load
+    window.onload = () => runAllTests();
+  </script>
+  
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDS - Attack Simulator</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <div class="logo">🛡️ DDS</div>
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="dashboard.html">Dashboard</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="login.html">Login</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <div class="simulator-container" style="padding: 120px 20px 40px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); min-height: 100vh;">
+    <div class="container" style="max-width: 1000px; margin: 0 auto;">
+      <h1 style="text-align: center; color: #1f2937; margin-bottom: 10px; font-size: 2.5rem;">🛡️ Attack Simulator</h1>
+      <p style="text-align: center; color: #6b7280; margin-bottom: 40px; font-size: 1.1rem;">
+        Test the DDS security system by simulating various attack scenarios
+      </p>
+
+      <div class="simulator-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; margin-bottom: 40px;">
+        <div class="simulator-card" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
+          <h3 style="color: #1f2937; margin-bottom: 15px; font-size: 1.3rem;">🔥 Brute Force Attack</h3>
+          <p style="color: #6b7280; margin-bottom: 20px; font-size: 0.9rem;">Simulate multiple login attempts with wrong passwords</p>
+          <input type="email" id="bruteEmail" placeholder="Target Email" value="test@example.com" style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+          <input type="password" id="brutePassword" placeholder="Wrong Password Base" value="wrongpass" style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+          <input type="number" id="bruteCount" placeholder="Number of Attempts" value="5" min="1" max="20" style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+          <button onclick="simulateBruteForce()" style="width: 100%; padding: 12px; background: linear-gradient(45deg, #ef4444, #dc2626); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">Start Brute Force</button>
+        </div>
+
+        <div class="simulator-card" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
+          <h3 style="color: #1f2937; margin-bottom: 15px; font-size: 1.3rem;">💉 SQL Injection</h3>
+          <p style="color: #6b7280; margin-bottom: 20px; font-size: 0.9rem;">Test SQL injection detection and prevention</p>
+          <input type="text" id="sqlInput" placeholder="SQL Payload" value="' OR '1'='1" style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+          <button onclick="simulateSQLInjection()" style="width: 100%; padding: 12px; background: linear-gradient(45deg, #f59e0b, #d97706); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">Execute SQL Injection</button>
+        </div>
+
+        <div class="simulator-card" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
+          <h3 style="color: #1f2937; margin-bottom: 15px; font-size: 1.3rem;">⚡ XSS Attack</h3>
+          <p style="color: #6b7280; margin-bottom: 20px; font-size: 0.9rem;">Simulate cross-site scripting attempts</p>
+          <input type="text" id="xssInput" placeholder="XSS Payload" value="<script>alert('XSS')</script>" style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+          <button onclick="simulateXSS()" style="width: 100%; padding: 12px; background: linear-gradient(45deg, #8b5cf6, #7c3aed); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">Execute XSS</button>
+        </div>
+
+        <div class="simulator-card" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
+          <h3 style="color: #1f2937; margin-bottom: 15px; font-size: 1.3rem;">🌊 DDoS Simulation</h3>
+          <p style="color: #6b7280; margin-bottom: 20px; font-size: 0.9rem;">Simulate distributed denial of service attacks</p>
+          <input type="number" id="ddosRequests" placeholder="Number of Requests" value="10" min="1" max="50" style="width: 100%; padding: 12px; margin: 10px 0; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;">
+          <button onclick="simulateDDoS()" style="width: 100%; padding: 12px; background: linear-gradient(45deg, #ec4899, #db2777); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s ease;">Start DDoS</button>
+        </div>
+      </div>
+
+      <div class="simulator-controls" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-bottom: 30px;">
+        <h3 style="color: #1f2937; margin-bottom: 15px;">🎛️ Simulation Controls</h3>
+        <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+          <button onclick="clearLog()" style="padding: 10px 20px; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">🗑️ Clear Log</button>
+          <button onclick="exportLog()" style="padding: 10px 20px; background: #059669; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">📄 Export Log</button>
+        </div>
+      </div>
+
+      <div id="log" style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-height: 500px; overflow-y: auto; font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; color: #374151; border: 1px solid rgba(0,0,0,0.05);">
+        <h3 style="margin-bottom: 15px; color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">📋 Simulation Log</h3>
+        <div id="logContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/simulator.js"></script>

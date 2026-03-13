@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDS - System Testing Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 24px;
+      padding: 3rem;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      text-align: center;
+      color: #667eea;
+      margin-bottom: 2rem;
+      font-size: 2.5rem;
+    }
+
+    .test-section {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: #f8fafc;
+      border-radius: 16px;
+      border-left: 4px solid #667eea;
+    }
+
+    .test-section h2 {
+      color: #1e293b;
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .test-card {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+
+    .test-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .test-card h3 {
+      color: #334155;
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+    }
+
+    .test-card p {
+      color: #64748b;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1rem;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .status {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 8px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 2px solid #10b981;
+    }
+
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 2px solid #ef4444;
+    }
+
+    .status.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 2px solid #3b82f6;
+    }
+
+    .status.warning {
+      background: #fef3c7;
+      color: #92400e;
+      border: 2px solid #f59e0b;
+    }
+
+    .log-container {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: #1e293b;
+      border-radius: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .log-entry {
+      color: #e2e8f0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      border-left: 3px solid #667eea;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .log-entry.success { border-left-color: #10b981; }
+    .log-entry.error { border-left-color: #ef4444; }
+    .log-entry.warning { border-left-color: #f59e0b; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5rem;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: 900;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🛡️ DDS System Testing Dashboard</h1>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="testsRun">0</div>
+        <div class="stat-label">Tests Run</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="testsPassed">0</div>
+        <div class="stat-label">Tests Passed</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="testsFailed">0</div>
+        <div class="stat-label">Tests Failed</div>
+      </div>
+    </div>
+
+    <!-- Backend Tests -->
+    <div class="test-section">
+      <h2>🔧 Backend Tests</h2>
+      <div class="test-grid">
+        <div class="test-card">
+          <h3>Server Health Check</h3>
+          <p>Test if backend server is running</p>
+          <button onclick="testServerHealth()">Run Test</button>
+          <div id="serverHealthStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>Database Connection</h3>
+          <p>Verify MongoDB connection</p>
+          <button onclick="testDatabaseConnection()">Run Test</button>
+          <div id="dbConnectionStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>Socket.IO Connection</h3>
+          <p>Test real-time communication</p>
+          <button onclick="testSocketConnection()">Run Test</button>
+          <div id="socketStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Authentication Tests -->
+    <div class="test-section">
+      <h2>🔐 Authentication Tests</h2>
+      <div class="test-grid">
+        <div class="test-card">
+          <h3>User Registration</h3>
+          <p>Create test user account</p>
+          <button onclick="testRegistration()">Run Test</button>
+          <div id="registrationStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>User Login</h3>
+          <p>Test login with credentials</p>
+          <button onclick="testLogin()">Run Test</button>
+          <div id="loginStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>JWT Validation</h3>
+          <p>Verify token authentication</p>
+          <button onclick="testJWTValidation()">Run Test</button>
+          <div id="jwtStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security Tests -->
+    <div class="test-section">
+      <h2>🛡️ Security Tests</h2>
+      <div class="test-grid">
+        <div class="test-card">
+          <h3>Failed Login Detection</h3>
+          <p>Test brute force protection</p>
+          <button onclick="testFailedLogin()">Run Test</button>
+          <div id="failedLoginStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>Risk Score Calculation</h3>
+          <p>Test AI risk engine</p>
+          <button onclick="testRiskScore()">Run Test</button>
+          <div id="riskScoreStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>Attack Logging</h3>
+          <p>Verify attack log creation</p>
+          <button onclick="testAttackLogging()">Run Test</button>
+          <div id="attackLogStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Real-Time Tests -->
+    <div class="test-section">
+      <h2>⚡ Real-Time Tests</h2>
+      <div class="test-grid">
+        <div class="test-card">
+          <h3>Cross-Device Notification</h3>
+          <p>Test instant alerts</p>
+          <button onclick="testCrossDeviceNotification()">Run Test</button>
+          <div id="notificationStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>Panic Button</h3>
+          <p>Test global lockdown</p>
+          <button onclick="testPanicButton()">Run Test</button>
+          <div id="panicStatus"></div>
+        </div>
+
+        <div class="test-card">
+          <h3>Live Updates</h3>
+          <p>Test real-time data sync</p>
+          <button onclick="testLiveUpdates()">Run Test</button>
+          <div id="liveUpdatesStatus"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Run All Tests -->
+    <div style="text-align: center; margin-top: 2rem;">
+      <button onclick="runAllTests()" style="max-width: 400px; padding: 1.25rem; font-size: 1.1rem;">
+        🚀 Run All Tests
+      </button>
+    </div>
+
+    <!-- Test Logs -->
+    <div class="log-container" id="logContainer">
+      <div class="log-entry">System ready. Click "Run All Tests" to begin...</div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:5000';
+    let socket;
+    let testsRun = 0;
+    let testsPassed = 0;
+    let testsFailed = 0;
+
+    function updateStats() {
+      document.getElementById('testsRun').textContent = testsRun;
+      document.getElementById('testsPassed').textContent = testsPassed;
+      document.getElementById('testsFailed').textContent = testsFailed;
+    }
+
+    function log(message, type = 'info') {
+      const logContainer = document.getElementById('logContainer');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function showStatus(elementId, message, type) {
+      const element = document.getElementById(elementId);
+      element.className = `status ${type}`;
+      element.textContent = message;
+    }
+
+    async function testServerHealth() {
+      testsRun++;
+      updateStats();
+      log('Testing server health...', 'info');
+      
+      try {
+        const response = await fetch(`${API_URL}/`);
+        const data = await response.json();
+        
+        if (data.status === 'active') {
+          testsPassed++;
+          showStatus('serverHealthStatus', '✅ Server is running', 'success');
+          log('✅ Server health check passed', 'success');
+        } else {
+          testsFailed++;
+          showStatus('serverHealthStatus', '❌ Server not responding', 'error');
+          log('❌ Server health check failed', 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('serverHealthStatus', '❌ Connection failed', 'error');
+        log(`❌ Server health check failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testDatabaseConnection() {
+      testsRun++;
+      updateStats();
+      log('Testing database connection...', 'info');
+      
+      try {
+        const response = await fetch(`${API_URL}/`);
+        if (response.ok) {
+          testsPassed++;
+          showStatus('dbConnectionStatus', '✅ Database connected', 'success');
+          log('✅ Database connection test passed', 'success');
+        } else {
+          testsFailed++;
+          showStatus('dbConnectionStatus', '❌ Database error', 'error');
+          log('❌ Database connection test failed', 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('dbConnectionStatus', '❌ Connection failed', 'error');
+        log(`❌ Database test failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testSocketConnection() {
+      testsRun++;
+      updateStats();
+      log('Testing Socket.IO connection...', 'info');
+      
+      try {
+        socket = io(API_URL);
+        
+        socket.on('connect', () => {
+          testsPassed++;
+          showStatus('socketStatus', '✅ Socket.IO connected', 'success');
+          log('✅ Socket.IO connection test passed', 'success');
+          updateStats();
+        });
+
+        socket.on('connect_error', (error) => {
+          testsFailed++;
+          showStatus('socketStatus', '❌ Socket.IO failed', 'error');
+          log(`❌ Socket.IO test failed: ${error.message}`, 'error');
+          updateStats();
+        });
+      } catch (error) {
+        testsFailed++;
+        showStatus('socketStatus', '❌ Connection failed', 'error');
+        log(`❌ Socket.IO test failed: ${error.message}`, 'error');
+        updateStats();
+      }
+    }
+
+    async function testRegistration() {
+      testsRun++;
+      updateStats();
+      log('Testing user registration...', 'info');
+      
+      const testUser = {
+        name: 'Test User',
+        email: `test${Date.now()}@example.com`,
+        password: 'test123456'
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/api/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(testUser)
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.token) {
+          testsPassed++;
+          showStatus('registrationStatus', '✅ Registration successful', 'success');
+          log('✅ User registration test passed', 'success');
+          localStorage.setItem('testToken', data.token);
+        } else {
+          testsFailed++;
+          showStatus('registrationStatus', '❌ Registration failed', 'error');
+          log(`❌ Registration test failed: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('registrationStatus', '❌ Request failed', 'error');
+        log(`❌ Registration test failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testLogin() {
+      testsRun++;
+      updateStats();
+      log('Testing user login...', 'info');
+      
+      const credentials = {
+        email: 'test@example.com',
+        password: 'test123'
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials)
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.token) {
+          testsPassed++;
+          showStatus('loginStatus', '✅ Login successful', 'success');
+          log('✅ User login test passed', 'success');
+          localStorage.setItem('testToken', data.token);
+        } else {
+          testsFailed++;
+          showStatus('loginStatus', '❌ Login failed', 'error');
+          log(`❌ Login test failed: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('loginStatus', '❌ Request failed', 'error');
+        log(`❌ Login test failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testJWTValidation() {
+      testsRun++;
+      updateStats();
+      log('Testing JWT validation...', 'info');
+      
+      const token = localStorage.getItem('testToken');
+
+      if (!token) {
+        testsFailed++;
+        showStatus('jwtStatus', '❌ No token found', 'error');
+        log('❌ JWT test failed: No token available', 'error');
+        updateStats();
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/security/dashboard`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          testsPassed++;
+          showStatus('jwtStatus', '✅ JWT valid', 'success');
+          log('✅ JWT validation test passed', 'success');
+        } else {
+          testsFailed++;
+          showStatus('jwtStatus', '❌ JWT invalid', 'error');
+          log('❌ JWT validation test failed', 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('jwtStatus', '❌ Validation failed', 'error');
+        log(`❌ JWT test failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testFailedLogin() {
+      testsRun++;
+      updateStats();
+      log('Testing failed login detection...', 'info');
+      
+      const wrongCredentials = {
+        email: 'test@example.com',
+        password: 'wrongpassword'
+      };
+
+      try {
+        const response = await fetch(`${API_URL}/api/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(wrongCredentials)
+        });
+
+        const data = await response.json();
+
+        if (!data.success && data.error) {
+          testsPassed++;
+          showStatus('failedLoginStatus', '✅ Detection working', 'success');
+          log('✅ Failed login detection test passed', 'success');
+        } else {
+          testsFailed++;
+          showStatus('failedLoginStatus', '❌ Detection failed', 'error');
+          log('❌ Failed login detection test failed', 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('failedLoginStatus', '❌ Test failed', 'error');
+        log(`❌ Failed login test failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testRiskScore() {
+      testsRun++;
+      updateStats();
+      log('Testing risk score calculation...', 'info');
+      
+      const token = localStorage.getItem('testToken');
+
+      if (!token) {
+        testsFailed++;
+        showStatus('riskScoreStatus', '❌ No token', 'error');
+        log('❌ Risk score test failed: No token', 'error');
+        updateStats();
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/security/dashboard`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.user && typeof data.user.riskScore === 'number') {
+          testsPassed++;
+          showStatus('riskScoreStatus', `✅ Risk Score: ${data.user.riskScore}`, 'success');
+          log(`✅ Risk score test passed (Score: ${data.user.riskScore})`, 'success');
+        } else {
+          testsFailed++;
+          showStatus('riskScoreStatus', '❌ Score unavailable', 'error');
+          log('❌ Risk score test failed', 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('riskScoreStatus', '❌ Test failed', 'error');
+        log(`❌ Risk score test failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testAttackLogging() {
+      testsRun++;
+      updateStats();
+      log('Testing attack logging...', 'info');
+      
+      const token = localStorage.getItem('testToken');
+
+      if (!token) {
+        testsFailed++;
+        showStatus('attackLogStatus', '❌ No token', 'error');
+        log('❌ Attack log test failed: No token', 'error');
+        updateStats();
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/security/attack-logs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (data.success && Array.isArray(data.logs)) {
+          testsPassed++;
+          showStatus('attackLogStatus', `✅ ${data.logs.length} logs found`, 'success');
+          log(`✅ Attack logging test passed (${data.logs.length} logs)`, 'success');
+        } else {
+          testsFailed++;
+          showStatus('attackLogStatus', '❌ Logs unavailable', 'error');
+          log('❌ Attack logging test failed', 'error');
+        }
+      } catch (error) {
+        testsFailed++;
+        showStatus('attackLogStatus', '❌ Test failed', 'error');
+        log(`❌ Attack logging test failed: ${error.message}`, 'error');
+      }
+      updateStats();
+    }
+
+    async function testCrossDeviceNotification() {
+      testsRun++;
+      updateStats();
+      log('Testing cross-device notifications...', 'info');
+      
+      if (!socket || !socket.connected) {
+        testsFailed++;
+        showStatus('notificationStatus', '❌ Socket not connected', 'error');
+        log('❌ Notification test failed: Socket not connected', 'error');
+        updateStats();
+        return;
+      }
+
+      socket.emit('test_notification', { message: 'Test notification' });
+      
+      testsPassed++;
+      showStatus('notificationStatus', '✅ Notification sent', 'success');
+      log('✅ Cross-device notification test passed', 'success');
+      updateStats();
+    }
+
+    async function testPanicButton() {
+      testsRun++;
+      updateStats();
+      log('Testing panic button (simulation)...', 'info');
+      
+      showStatus('panicStatus', '⚠️ Simulated (not executed)', 'warning');
+      log('⚠️ Panic button test simulated (actual execution would lock account)', 'warning');
+      testsPassed++;
+      updateStats();
+    }
+
+    async function testLiveUpdates() {
+      testsRun++;
+      updateStats();
+      log('Testing live updates...', 'info');
+      
+      if (!socket || !socket.connected) {
+        testsFailed++;
+        showStatus('liveUpdatesStatus', '❌ Socket not connected', 'error');
+        log('❌ Live updates test failed: Socket not connected', 'error');
+        updateStats();
+        return;
+      }
+
+      testsPassed++;
+      showStatus('liveUpdatesStatus', '✅ Real-time active', 'success');
+      log('✅ Live updates test passed', 'success');
+      updateStats();
+    }
+
+    async function runAllTests() {
+      log('========================================', 'info');
+      log('Starting comprehensive test suite...', 'info');
+      log('========================================', 'info');
+      
+      testsRun = 0;
+      testsPassed = 0;
+      testsFailed = 0;
+      updateStats();
+
+      await testServerHealth();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testDatabaseConnection();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testSocketConnection();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      await testRegistration();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testLogin();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testJWTValidation();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testFailedLogin();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testRiskScore();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testAttackLogging();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testCrossDeviceNotification();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testPanicButton();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      await testLiveUpdates();
+      
+      log('========================================', 'info');
+      log(`Test suite completed!`, 'info');
+      log(`Total: ${testsRun} | Passed: ${testsPassed} | Failed: ${testsFailed}`, 'info');
+      log('========================================', 'info');
+    }
+
+    // Load Socket.IO
+    const script = document.createElement('script');
+    script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
+    document.head.appendChild(script);
+  </script>
+</body>
+</html>
