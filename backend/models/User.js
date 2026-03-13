@@ -39,6 +39,13 @@ const userSchema = new mongoose.Schema({
   lastLoginIP: {
     type: String
   },
+  lastLoginLocation: {
+    country: String,
+    city: String,
+    region: String,
+    lat: Number,
+    lon: Number
+  },
   knownIPs: {
     type: [String],
     default: []

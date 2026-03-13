@@ -90,6 +90,7 @@ exports.register = async (req, res) => {
     
     const ip = req.ip || req.connection.remoteAddress;
     const device = req.headers['user-agent'] || 'Unknown';
+    const location = await getLocationFromIP(ip);
     
     const user = await User.create({ 
       name, 
@@ -98,7 +99,8 @@ exports.register = async (req, res) => {
       password,
       knownIPs: [ip],
       knownDevices: [device],
-      lastLoginIP: ip
+      lastLoginIP: ip,
+      lastLoginLocation: location
     });
     
     const token = jwt.sign(
@@ -107,7 +109,6 @@ exports.register = async (req, res) => {
       { expiresIn: '24h' }
     );
     
-    // Store initial session
     user.activeSessions.push({
       token,
       deviceInfo: device,
@@ -127,7 +128,6 @@ exports.register = async (req, res) => {
       } 
     });
   } catch (error) {
-    // Handle duplicates gracefully (e.g., race conditions creating the same user)
     if (error.code === 11000) {
       return res.status(400).json({ error: 'User already exists' });
     }
@@ -140,6 +140,7 @@ exports.login = async (req, res) => {
     const { email, password, verificationCode } = req.body;
     const ip = req.ip || req.connection.remoteAddress;
     const device = req.headers['user-agent'] || 'Unknown';
+    const io = req.app.get('io');
     
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -147,17 +148,20 @@ exports.login = async (req, res) => {
     
     // Check if IP is blocked
     if (securityController.isIPBlocked(ip)) {
-      await logAttack(email, ip, device, 'Login attempt from BLOCKED IP', 'critical', req.app.get('io'));
+      await logAttack(email, ip, device, '🚫 Login attempt from BLOCKED IP', 'critical', io);
       return res.status(403).json({ 
         error: 'This IP address has been temporarily blocked due to security concerns',
         blocked: true
       });
     }
     
+    // Track rapid login attempts
+    const isRapid = riskEngine.isRapidAttempt(ip + email);
+    
     const user = await User.findOne({ email: email.toLowerCase() });
     
     if (!user) {
-      await logAttack(email, ip, device, 'Failed login attempt - User not found', 'low', req.app.get('io'));
+      await logAttack(email, ip, device, '❌ Failed login - User not found', 'low', io);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
@@ -172,7 +176,6 @@ exports.login = async (req, res) => {
         });
       }
       
-      // Verify code
       if (user.verificationCode !== verificationCode.toUpperCase()) {
         return res.status(400).json({ 
           error: 'Invalid verification code',
@@ -189,7 +192,6 @@ exports.login = async (req, res) => {
       }
     }
 
-    // If user needs to change password, require them to do so before normal login
     if (user.requiresPasswordChange) {
       return res.status(403).json({
         error: 'Password change required',
@@ -199,7 +201,7 @@ exports.login = async (req, res) => {
     }
     
     if (user.isLocked && !user.requiresVerification) {
-      await logAttack(email, ip, device, 'Login attempt on LOCKED account', 'critical', req.app.get('io'));
+      await logAttack(email, ip, device, '🔒 Login attempt on LOCKED account', 'critical', io);
       return res.status(403).json({ 
         error: 'Account locked due to suspicious activity',
         locked: true,
@@ -212,22 +214,42 @@ exports.login = async (req, res) => {
     if (!isMatch) {
       await user.incrementLoginAttempts();
       
+      const currentLocation = await getLocationFromIP(ip);
+      const impossibleTravel = riskEngine.detectImpossibleTravel(
+        user.lastLoginLocation, 
+        currentLocation, 
+        user.lastLogin
+      );
+      
       const riskFactors = {
         loginAttempts: user.loginAttempts,
         isNewDevice: !user.knownDevices.includes(device),
         isNewIP: !user.knownIPs.includes(ip),
-        rapidAttempts: user.loginAttempts > 3
+        rapidAttempts: isRapid,
+        impossibleTravel,
+        suspiciousLocation: false
       };
       
-      const riskScore = riskEngine.calculateRiskScore(riskFactors);
+      const riskResult = riskEngine.calculateRiskScore(riskFactors);
+      const riskScore = riskResult.score;
       const riskLevel = riskEngine.getRiskLevel(riskScore);
       
       if (user.loginAttempts >= 5) {
-        await logAttack(email, ip, device, 'BRUTE FORCE ATTACK DETECTED', 'critical', req.app.get('io'));
+        await logAttack(email, ip, device, '🚨 BRUTE FORCE ATTACK DETECTED', 'critical', io);
+        
+        securityController.blockIP(ip, 'Brute force attack', 1);
+        
+        io.emit('securityAlert', {
+          message: '🚨 Brute force attack blocked',
+          email,
+          ip,
+          riskLevel: 'critical',
+          timestamp: new Date()
+        });
       } else if (user.loginAttempts >= 3) {
-        await logAttack(email, ip, device, 'Multiple failed login attempts', 'high', req.app.get('io'));
+        await logAttack(email, ip, device, '⚠️ Multiple failed login attempts', 'high', io);
       } else {
-        await logAttack(email, ip, device, 'Failed login attempt', riskLevel, req.app.get('io'));
+        await logAttack(email, ip, device, '❌ Failed login attempt', riskLevel, io);
       }
       
       return res.status(401).json({ 
@@ -237,62 +259,93 @@ exports.login = async (req, res) => {
       });
     }
     
-    const riskFactors = {
+    // Successful password match - check risk
+    const successLocation = await getLocationFromIP(ip);
+    const impossibleTravelSuccess = riskEngine.detectImpossibleTravel(
+      user.lastLoginLocation, 
+      successLocation, 
+      user.lastLogin
+    );
+    
+    const successRiskFactors = {
       loginAttempts: user.loginAttempts,
       isNewDevice: !user.knownDevices.includes(device),
       isNewIP: !user.knownIPs.includes(ip),
-      rapidAttempts: false
+      rapidAttempts: isRapid,
+      impossibleTravel: impossibleTravelSuccess,
+      suspiciousLocation: false
     };
     
-    const riskScore = riskEngine.calculateRiskScore(riskFactors);
+    const successRiskResult = riskEngine.calculateRiskScore(successRiskFactors);
+    const riskScore = successRiskResult.score;
     const riskLevel = riskEngine.getRiskLevel(riskScore);
+    const riskReasons = successRiskResult.reasons;
     
     user.riskScore = riskScore;
     
     if (riskEngine.shouldLockAccount(riskScore)) {
       user.isLocked = true;
       await user.save();
-      await logAttack(email, ip, device, 'HIGH RISK LOGIN - Account auto-locked', 'critical', req.app.get('io'));
+      await logAttack(email, ip, device, '🔒 HIGH RISK LOGIN - Account auto-locked', 'critical', io);
+      
+      io.emit('accountLocked', {
+        userId: user._id.toString(),
+        email: user.email,
+        riskScore,
+        reasons: riskReasons,
+        timestamp: new Date()
+      });
       
       return res.status(403).json({ 
         error: 'Account locked due to high risk score',
         locked: true,
-        riskScore
+        riskScore,
+        reasons: riskReasons
       });
     }
     
-    if (!user.knownIPs.includes(ip)) {
+    const isNewIP = !user.knownIPs.includes(ip);
+    const isNewDevice = !user.knownDevices.includes(device);
+    
+    if (isNewIP) {
       user.knownIPs.push(ip);
-      await logAttack(email, ip, device, 'Login from NEW IP ADDRESS', 'medium', req.app.get('io'));
+      await logAttack(email, ip, device, '🌐 Login from NEW IP ADDRESS', 'medium', io);
     }
     
-    if (!user.knownDevices.includes(device)) {
+    if (isNewDevice) {
       user.knownDevices.push(device);
-      await logAttack(email, ip, device, 'Login from UNKNOWN DEVICE', 'medium', req.app.get('io'));
+      await logAttack(email, ip, device, '💻 Login from UNKNOWN DEVICE', 'medium', io);
     }
-    
-    // Send real-time notification to all user's devices about new login
-    const io = req.app.get('io');
-    const location = await getLocationFromIP(ip);
     
     // Notify user about new login from different device/IP
-    if (riskFactors.isNewDevice || riskFactors.isNewIP) {
+    if (isNewDevice || isNewIP || impossibleTravelSuccess) {
+      let alertMessage = '🔔 New login detected';
+      if (impossibleTravelSuccess) {
+        alertMessage = '⚠️ IMPOSSIBLE TRAVEL DETECTED - Login from different location';
+      } else if (isNewDevice && isNewIP) {
+        alertMessage = '🚨 Login from UNKNOWN DEVICE and NEW IP';
+      } else if (isNewDevice) {
+        alertMessage = '💻 Login from UNKNOWN DEVICE';
+      } else if (isNewIP) {
+        alertMessage = '🌐 Login from NEW IP ADDRESS';
+      }
+      
       io.emit('newLoginAlert', {
         userId: user._id.toString(),
         email: user.email,
-        message: `New login detected from ${riskFactors.isNewDevice ? 'unknown device' : 'new IP'}`,
-        location: `${location.city}, ${location.country}`,
+        message: alertMessage,
+        location: `${successLocation.city}, ${successLocation.country}`,
         ipAddress: ip,
         deviceInfo: device,
         riskLevel,
+        riskScore,
+        reasons: riskReasons,
         timestamp: new Date()
       });
-      
-      await logAttack(email, ip, device, `Login from ${riskFactors.isNewDevice ? 'UNKNOWN DEVICE' : 'NEW IP ADDRESS'}`, riskLevel, io);
     }
     
     if (riskScore > 0 && riskScore <= 70) {
-      await logAttack(email, ip, device, 'Suspicious login detected', riskLevel, io);
+      await logAttack(email, ip, device, '⚠️ Suspicious login detected', riskLevel, io);
     }
     
     // Clear verification if it was required
@@ -302,15 +355,13 @@ exports.login = async (req, res) => {
       user.verificationExpires = undefined;
       user.panicMode = false;
       
-      // Log successful verification
-      const location = await getLocationFromIP(ip);
       await SecurityEvent.create({
         userId: user._id,
         email: user.email,
         eventType: 'verification_required',
         ipAddress: ip,
         deviceInfo: device,
-        location,
+        location: successLocation,
         reason: 'User successfully verified after panic mode'
       });
     }
@@ -318,15 +369,14 @@ exports.login = async (req, res) => {
     user.loginAttempts = 0;
     user.lastLogin = new Date();
     user.lastLoginIP = ip;
+    user.lastLoginLocation = successLocation;
     
-    // Generate new token
     const token = jwt.sign(
       { id: user._id, email: user.email }, 
       process.env.JWT_SECRET, 
       { expiresIn: '24h' }
     );
     
-    // Store active session
     user.activeSessions.push({
       token,
       deviceInfo: device,
@@ -334,7 +384,6 @@ exports.login = async (req, res) => {
       createdAt: new Date()
     });
     
-    // Keep only last 10 sessions
     if (user.activeSessions.length > 10) {
       user.activeSessions = user.activeSessions.slice(-10);
     }
@@ -373,13 +422,13 @@ exports.forgotPassword = async (req, res) => {
     
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
     
     res.json({ 
       success: true,
       message: 'Password reset token generated',
-      resetToken: resetToken // In production, send via email
+      resetToken: resetToken
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

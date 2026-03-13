@@ -172,7 +172,7 @@ node server.js
 - ✅ Account locked immediately
 - ✅ All sessions terminated
 - ✅ Verification code generated
-- ✅ IP blocked for 24 hours
+- ✅ IP blocked for 1 minute
 - ✅ Force logout from all devices
 - ✅ Redirect to login page
 

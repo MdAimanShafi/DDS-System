@@ -1,22 +1,10 @@
-// Dashboard Main Module
-function authenticatedRequest(url, options = {}) {
-
-  const token = localStorage.getItem("token")
-
-  return fetch(url,{
-    ...options,
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization":"Bearer " + token
-    }
-  })
-
-}
-
+// Enhanced Dashboard with Real-time Features
 let socket;
 let attackMap;
 let alertsManager;
 let currentUserId;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 // Initialize Dashboard
 async function initializeDashboard() {
@@ -25,15 +13,20 @@ async function initializeDashboard() {
     return;
   }
   
-  initializeUserInfo();
-  initializeSocket();
-  initializeMap();
-  initializeAlerts();
-  await loadDashboardData();
-  setupEventListeners();
-  setupGlobalLogoutListener();
-  
-  console.log('✅ Dashboard initialized');
+  try {
+    initializeUserInfo();
+    initializeSocket();
+    initializeMap();
+    initializeAlerts();
+    await loadDashboardData();
+    setupEventListeners();
+    setupGlobalLogoutListener();
+    
+    console.log('✅ Dashboard initialized successfully');
+  } catch (error) {
+    console.error('❌ Dashboard initialization error:', error);
+    showError('Failed to initialize dashboard. Please refresh the page.');
+  }
 }
 
 // Initialize User Info
@@ -53,15 +46,22 @@ function initializeUserInfo() {
   if (userEmail) userEmail.textContent = user.email;
 }
 
-// Initialize Socket.IO
+// Initialize Socket.IO with reconnection logic
 function initializeSocket() {
+  const API_URL = 'http://localhost:5000';
+  
   socket = io(API_URL, {
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 5000,
+    reconnectionAttempts: MAX_RECONNECT_ATTEMPTS
   });
   
   socket.on('connect', () => {
     console.log('🔌 Connected to security server');
     showConnectionStatus(true);
+    reconnectAttempts = 0;
     
     const token = getAuthToken();
     if (token) {
@@ -74,6 +74,17 @@ function initializeSocket() {
     showConnectionStatus(false);
   });
   
+  socket.on('reconnect_attempt', (attempt) => {
+    reconnectAttempts = attempt;
+    console.log(`🔄 Reconnection attempt ${attempt}/${MAX_RECONNECT_ATTEMPTS}`);
+  });
+  
+  socket.on('reconnect_failed', () => {
+    console.error('❌ Failed to reconnect to server');
+    showError('Lost connection to security server. Please refresh the page.');
+  });
+  
+  // Real-time event handlers
   socket.on('newLoginAlert', (data) => {
     console.log('🔔 NEW LOGIN ALERT:', data);
     handleNewLoginAlert(data);
@@ -89,13 +100,22 @@ function initializeSocket() {
     handleNewAttack(attack);
   });
   
-  socket.on('panicActivated', (data) => {
-    console.log('🚨 PANIC MODE ACTIVATED');
+  socket.on('accountLocked', (data) => {
+    console.log('🔒 Account Locked:', data);
+    handleAccountLocked(data);
   });
   
   socket.on('force_logout', (data) => {
     console.log('🚨 FORCE LOGOUT RECEIVED:', data);
     handleForceLogout(data);
+  });
+  
+  socket.on('panicActivated', (data) => {
+    console.log('🚨 PANIC MODE ACTIVATED:', data);
+  });
+  
+  socket.on('error', (error) => {
+    console.error('⚠️ Socket error:', error);
   });
 }
 
@@ -105,28 +125,31 @@ function handleNewLoginAlert(alert) {
   
   const user = getUserInfo();
   if (user && alert.userId === user.id) {
-    // Show prominent notification
     showCrossDeviceNotification(alert);
     
-    // Add to alerts manager
-    if (alertsManager) alertsManager.addAlert({
-      message: alert.message,
-      email: alert.email,
-      ip: alert.ipAddress,
-      location: alert.location,
-      riskLevel: alert.riskLevel,
-      timestamp: alert.timestamp
-    });
+    if (alertsManager) {
+      alertsManager.addAlert({
+        message: alert.message,
+        email: alert.email,
+        ip: alert.ipAddress,
+        location: alert.location,
+        riskLevel: alert.riskLevel,
+        timestamp: alert.timestamp
+      });
+    }
     
-    // Browser notification
     showBrowserNotification({
       message: `🚨 ${alert.message}`,
       location: alert.location,
       riskLevel: alert.riskLevel
     });
     
-    // Play alert sound
     playAlertSound();
+    
+    // Update risk score if provided
+    if (alert.riskScore !== undefined) {
+      updateRiskScore(alert.riskScore);
+    }
   }
 }
 
@@ -149,6 +172,13 @@ function showCrossDeviceNotification(alert) {
     border: 2px solid rgba(255, 255, 255, 0.3);
   `;
   
+  const reasons = alert.reasons && alert.reasons.length > 0 
+    ? `<div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.2);">
+         <div style="font-weight: 700; margin-bottom: 0.5rem;">⚠️ Risk Factors:</div>
+         ${alert.reasons.map(r => `<div style="font-size: 0.85rem; margin-bottom: 0.25rem;">• ${r}</div>`).join('')}
+       </div>`
+    : '';
+  
   notification.innerHTML = `
     <div style="display: flex; align-items: start; gap: 1rem;">
       <div style="font-size: 2.5rem; animation: pulse 1s infinite;">🚨</div>
@@ -164,7 +194,9 @@ function showCrossDeviceNotification(alert) {
           <div>🌐 <strong>IP:</strong> ${alert.ipAddress}</div>
           <div>💻 <strong>Device:</strong> ${alert.deviceInfo.substring(0, 50)}...</div>
           <div>⚠️ <strong>Risk:</strong> ${alert.riskLevel.toUpperCase()}</div>
+          ${alert.riskScore !== undefined ? `<div>📊 <strong>Risk Score:</strong> ${alert.riskScore}/100</div>` : ''}
         </div>
+        ${reasons}
         <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.3);">
           <button onclick="activatePanicMode()" style="
             background: white;
@@ -203,13 +235,26 @@ function showCrossDeviceNotification(alert) {
   
   document.body.appendChild(notification);
   
-  // Auto remove after 15 seconds
   setTimeout(() => {
     if (notification.parentElement) {
       notification.style.animation = 'slideOutRight 0.5s ease';
       setTimeout(() => notification.remove(), 500);
     }
   }, 15000);
+}
+
+// Handle Account Locked
+function handleAccountLocked(data) {
+  const user = getUserInfo();
+  if (user && data.userId === user.id) {
+    updateAccountStatus(true);
+    
+    if (data.riskScore !== undefined) {
+      updateRiskScore(data.riskScore);
+    }
+    
+    showError('Your account has been locked due to suspicious activity. Please contact support.');
+  }
 }
 
 // Play Alert Sound
@@ -320,6 +365,7 @@ async function loadDashboardData() {
   showLoading(true);
   
   try {
+    const API_URL = 'http://localhost:5000';
     const response = await authenticatedRequest(`${API_URL}/security/dashboard`);
     const data = await response.json();
     
@@ -336,7 +382,7 @@ async function loadDashboardData() {
     }
   } catch (error) {
     console.error('Error loading dashboard:', error);
-    showError('Connection error. Please refresh the page.');
+    showError('Connection error. Please check if backend is running.');
   } finally {
     showLoading(false);
   }
@@ -496,6 +542,7 @@ async function activatePanicMode() {
   }
   
   try {
+    const API_URL = 'http://localhost:5000';
     const response = await authenticatedRequest(`${API_URL}/security/panic`, {
       method: 'POST'
     });
@@ -550,10 +597,34 @@ function showLoading(show) {
 
 function showError(message) {
   console.error(message);
+  const errorDiv = document.createElement('div');
+  errorDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #ef4444;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 10000;
+    animation: slideInRight 0.3s ease;
+  `;
+  errorDiv.textContent = message;
+  document.body.appendChild(errorDiv);
+  
+  setTimeout(() => {
+    errorDiv.style.animation = 'slideOutRight 0.3s ease';
+    setTimeout(() => errorDiv.remove(), 300);
+  }, 5000);
 }
 
 function showConnectionStatus(connected) {
-  console.log(connected ? '✅ Connected' : '❌ Disconnected');
+  const statusEl = document.getElementById('connectionStatus');
+  if (statusEl) {
+    statusEl.textContent = connected ? '🟢 Connected' : '🔴 Disconnected';
+    statusEl.style.color = connected ? '#10b981' : '#ef4444';
+  }
 }
 
 function showBrowserNotification(alert) {
@@ -595,6 +666,7 @@ function requestNotificationPermission() {
   }
 }
 
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   initializeDashboard();
   requestNotificationPermission();

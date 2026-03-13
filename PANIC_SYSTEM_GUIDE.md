@@ -10,7 +10,7 @@
 
 2. **Panic Button System**
    - Invalidates ALL user tokens globally
-   - Blocks suspicious IPs for 24 hours
+   - Blocks suspicious IPs for 1 minute
    - Clears all trusted devices
    - Generates verification code for re-login
    - Logs security events in database
@@ -149,7 +149,7 @@ Open `frontend/index.html` in browser or use Live Server
 
 1. **Activate Panic Mode**
    - Login and click PANIC BUTTON
-   - Your current IP is now blocked for 24 hours
+   - Your current IP is now blocked for 1 minute
 
 2. **Try to Login Again**
    - Attempt login without verification code
@@ -286,7 +286,7 @@ localStorage.getItem('token') // Returns null
 **Solution:**
 1. Verification should clear IP block
 2. Check backend logs
-3. Wait 24 hours for auto-unblock
+3. Wait 1 minute for auto-unblock
 4. Or manually clear: `db.users.update({email: "..."}, {$set: {blockedIPs: []}})`
 
 ---
@@ -327,7 +327,7 @@ User must verify identity to regain access
 ✅ All sessions terminated globally
 ✅ All browser tabs logged out
 ✅ Verification code generated
-✅ IP blocked for 24 hours
+✅ IP blocked for 1 minute
 ✅ Security events logged
 ✅ Re-login requires verification
 ✅ Attack logs preserved

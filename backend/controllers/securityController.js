@@ -97,8 +97,8 @@ exports.panic = async (req, res) => {
       invalidatedTokens.add(currentToken);
     }
     
-    // 2. Block suspicious IPs temporarily (24 hours)
-    const blockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // 2. Block suspicious IPs temporarily (1 minute)
+    const blockUntil = new Date(Date.now() + 1 * 60 * 1000);
     blockedIPs.set(ip, {
       blockedUntil: blockUntil,
       reason: 'Panic mode activated',
@@ -179,7 +179,7 @@ exports.panic = async (req, res) => {
         'Account locked',
         'All sessions terminated globally',
         'All tokens invalidated',
-        'Suspicious IP blocked for 24 hours',
+        'Suspicious IP blocked for 1 minute',
         'Trusted devices cleared',
         'Verification required for re-login'
       ],
