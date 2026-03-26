@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Universal Logout - DDS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 3rem;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      color: #1f2937;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 2rem;
+      font-size: 1.1rem;
+    }
+    
+    .info-box {
+      background: #f3f4f6;
+      border-left: 4px solid #667eea;
+      padding: 1.5rem;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+    }
+    
+    .info-box h3 {
+      color: #1f2937;
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+    }
+    
+    .info-box ul {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .info-box li {
+      color: #4b5563;
+      padding: 0.5rem 0;
+      padding-left: 1.5rem;
+      position: relative;
+    }
+    
+    .info-box li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #10b981;
+      font-weight: bold;
+    }
+    
+    .warning-box {
+      background: #fef2f2;
+      border-left: 4px solid #ef4444;
+      padding: 1.5rem;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+    }
+    
+    .warning-box p {
+      color: #991b1b;
+      font-weight: 600;
+      margin: 0;
+    }
+    
+    .btn {
+      width: 100%;
+      padding: 1.25rem;
+      font-size: 1.2rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .btn-panic {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+      box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+    }
+    
+    .btn-panic:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(239, 68, 68, 0.6);
+    }
+    
+    .btn-panic:active {
+      transform: translateY(0);
+    }
+    
+    .btn-panic:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .status {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 600;
+      display: none;
+    }
+    
+    .status.success {
+      background: #d1fae5;
+      color: #065f46;
+      display: block;
+    }
+    
+    .status.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block;
+    }
+    
+    .websites-list {
+      max-height: 300px;
+      overflow-y: auto;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 2rem;
+    }
+    
+    .websites-list h4 {
+      color: #1f2937;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+    }
+    
+    .website-item {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+      color: #4b5563;
+    }
+    
+    .website-item:before {
+      content: "🌐";
+      margin-right: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚨 Universal Logout Test</h1>
+    <p class="subtitle">Test the panic button universal logout feature</p>
+    
+    <div class="info-box">
+      <h3>📋 What This Does:</h3>
+      <ul>
+        <li>Opens a popup window</li>
+        <li>Logs out from all major websites</li>
+        <li>Shows real-time progress</li>
+        <li>Closes automatically when done</li>
+      </ul>
+    </div>
+    
+    <div class="warning-box">
+      <p>⚠️ Warning: This will actually logout from all websites where you're currently logged in!</p>
+    </div>
+    
+    <div class="websites-list">
+      <h4>🌐 Websites that will be logged out (28 total):</h4>
+      <div class="website-item">Gmail, Outlook, Yahoo Mail, Proton Mail</div>
+      <div class="website-item">Instagram, Facebook, Twitter/X, LinkedIn</div>
+      <div class="website-item">Snapchat, WhatsApp Web, Telegram, Discord</div>
+      <div class="website-item">YouTube, Netflix, Prime Video, Spotify</div>
+      <div class="website-item">Google Drive, Dropbox, OneDrive</div>
+      <div class="website-item">GitHub, GitLab, Stack Overflow</div>
+      <div class="website-item">Vercel, Netlify</div>
+    </div>
+    
+    <button class="btn btn-panic" id="testBtn" onclick="testUniversalLogout()">
+      🚨 Test Universal Logout
+    </button>
+    
+    <div class="status" id="status"></div>
+  </div>
+
+  <script src="js/universal-logout.js"></script>
+  <script>
+    async function testUniversalLogout() {
+      const btn = document.getElementById('testBtn');
+      const status = document.getElementById('status');
+      
+      // Confirm
+      const confirmed = confirm(
+        '⚠️ UNIVERSAL LOGOUT TEST\n\n' +
+        'This will:\n' +
+        '• Open a popup window\n' +
+        '• Logout from 28 major websites\n' +
+        '• Show real-time progress\n\n' +
+        'Make sure popups are enabled!\n\n' +
+        'Continue?'
+      );
+      
+      if (!confirmed) return;
+      
+      // Disable button
+      btn.disabled = true;
+      btn.textContent = '🔄 Processing...';
+      status.style.display = 'none';
+      
+      try {
+        // Perform universal logout
+        const result = await performUniversalLogout();
+        
+        // Show success
+        status.className = 'status success';
+        status.textContent = `✅ Success! Logged out from ${result.completed} websites.`;
+        
+        btn.disabled = false;
+        btn.textContent = '🚨 Test Universal Logout';
+        
+      } catch (error) {
+        console.error('Error:', error);
+        
+        // Show error
+        status.className = 'status error';
+        status.textContent = '❌ Error: ' + error.message;
+        
+        btn.disabled = false;
+        btn.textContent = '🚨 Test Universal Logout';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>DDS Extension Setup</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      padding: 2rem;
+    }
+    .card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 2.5rem;
+      max-width: 550px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .subtitle { color: rgba(255,255,255,0.6); margin-bottom: 2rem; }
+    .step {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 1.2rem 1.5rem;
+      margin-bottom: 1rem;
+      border-left: 4px solid #6366f1;
+    }
+    .step h3 { font-size: 1rem; margin-bottom: 0.4rem; color: #a5b4fc; }
+    .step p { font-size: 0.9rem; color: rgba(255,255,255,0.7); line-height: 1.5; }
+    .step code {
+      background: rgba(99,102,241,0.2);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #a5b4fc;
+    }
+    input {
+      width: 100%;
+      padding: 1rem;
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      color: white;
+      font-size: 1rem;
+      margin: 0.5rem 0 1rem;
+      outline: none;
+    }
+    input:focus { border-color: #6366f1; }
+    input::placeholder { color: rgba(255,255,255,0.3); }
+    .btn {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,0.4); }
+    .success {
+      background: rgba(16,185,129,0.15);
+      border: 2px solid rgba(16,185,129,0.4);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+      color: #34d399;
+      font-weight: 700;
+      display: none;
+      margin-top: 1rem;
+    }
+    .error {
+      background: rgba(239,68,68,0.15);
+      border: 2px solid rgba(239,68,68,0.4);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: center;
+      color: #f87171;
+      font-weight: 700;
+      display: none;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔌 DDS Extension Setup</h1>
+    <p class="subtitle">Connect the Panic Button extension to your dashboard</p>
+
+    <div class="step">
+      <h3>Step 1: Install Extension</h3>
+      <p>Open <code>chrome://extensions/</code> → Enable Developer Mode → Load Unpacked → Select <code>panic-extension</code> folder</p>
+    </div>
+
+    <div class="step">
+      <h3>Step 2: Copy Extension ID</h3>
+      <p>After loading, Chrome will show an ID like <code>abcdefghijklmnopqrstuvwxyz123456</code> under the extension name. Copy it.</p>
+    </div>
+
+    <div class="step">
+      <h3>Step 3: Paste ID Below</h3>
+      <p>Paste the extension ID here and click Save:</p>
+      <input type="text" id="extIdInput" placeholder="e.g. abcdefghijklmnopqrstuvwxyz123456" />
+      <button class="btn" onclick="saveExtensionId()">✅ Save & Connect</button>
+    </div>
+
+    <div class="success" id="successMsg">
+      ✅ Extension connected! Panic button will now clear all cookies & logout from all websites.
+      <br><br>
+      <a href="dashboard.html" style="color:#34d399">→ Go to Dashboard</a>
+    </div>
+    <div class="error" id="errorMsg"></div>
+  </div>
+
+  <script>
+    // Pre-fill if already saved
+    const saved = localStorage.getItem('dds_extension_id');
+    if (saved) document.getElementById('extIdInput').value = saved;
+
+    function saveExtensionId() {
+      const id = document.getElementById('extIdInput').value.trim();
+      if (!id || id.length < 10) {
+        document.getElementById('errorMsg').style.display = 'block';
+        document.getElementById('errorMsg').textContent = '❌ Please enter a valid extension ID';
+        return;
+      }
+
+      // Test connection
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        chrome.runtime.sendMessage(id, { action: 'ping' }, (res) => {
+          if (chrome.runtime.lastError || !res) {
+            document.getElementById('errorMsg').style.display = 'block';
+            document.getElementById('errorMsg').textContent = '❌ Could not connect. Make sure extension is installed and ID is correct.';
+          } else {
+            localStorage.setItem('dds_extension_id', id);
+            document.getElementById('successMsg').style.display = 'block';
+            document.getElementById('errorMsg').style.display = 'none';
+          }
+        });
+      } else {
+        // Save anyway (will work when opened from Chrome with extension)
+        localStorage.setItem('dds_extension_id', id);
+        document.getElementById('successMsg').style.display = 'block';
+      }
+    }
+  </script>
+</body>
+</html>

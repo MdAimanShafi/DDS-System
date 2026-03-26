@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDS Panic Button</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 350px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 0;
+    }
+    
+    .container {
+      padding: 1.5rem;
+    }
+    
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      text-align: center;
+    }
+    
+    .subtitle {
+      text-align: center;
+      opacity: 0.9;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+    }
+    
+    .warning-box {
+      background: rgba(239, 68, 68, 0.2);
+      border: 2px solid rgba(239, 68, 68, 0.5);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    
+    .info-box {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    
+    .info-box h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .info-box ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    
+    .info-box li {
+      padding: 0.25rem 0;
+      padding-left: 1.2rem;
+      position: relative;
+    }
+    
+    .info-box li:before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+    }
+    
+    .panic-btn {
+      width: 100%;
+      padding: 1rem;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .panic-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+    }
+    
+    .panic-btn:active {
+      transform: translateY(0);
+    }
+    
+    .panic-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .status {
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 10px;
+      text-align: center;
+      font-size: 0.85rem;
+      display: none;
+    }
+    
+    .status.success {
+      background: rgba(16, 185, 129, 0.3);
+      border: 2px solid rgba(16, 185, 129, 0.5);
+      display: block;
+    }
+    
+    .status.error {
+      background: rgba(239, 68, 68, 0.3);
+      border: 2px solid rgba(239, 68, 68, 0.5);
+      display: block;
+    }
+    
+    .status.processing {
+      background: rgba(59, 130, 246, 0.3);
+      border: 2px solid rgba(59, 130, 246, 0.5);
+      display: block;
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .stats {
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚨 DDS Panic Button</h1>
+    <p class="subtitle">Emergency Universal Logout</p>
+    
+    <div class="warning-box">
+      <strong>⚠️ Warning:</strong> This will immediately logout from ALL major websites by clearing cookies and closing tabs.
+    </div>
+    
+    <div class="info-box">
+      <h3>📋 What This Does:</h3>
+      <ul>
+        <li>Clears all cookies from 28+ websites</li>
+        <li>Closes all related tabs</li>
+        <li>Clears cache and local storage</li>
+        <li>Forces complete logout</li>
+      </ul>
+    </div>
+    
+    <button class="panic-btn" id="panicBtn">
+      🚨 Activate Panic Logout
+    </button>
+    
+    <div class="status" id="status"></div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

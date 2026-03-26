@@ -24,10 +24,15 @@ const attackLogSchema = new mongoose.Schema({
   },
   location: {
     country: String,
+    countryCode: String,
     city: String,
     region: String,
     lat: Number,
-    lon: Number
+    lon: Number,
+    timezone: String,
+    isp: String,
+    org: String,
+    zip: String
   },
   blocked: {
     type: Boolean,

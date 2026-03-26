@@ -26,11 +26,25 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found' });
     }
     
+    // Auto-unlock if lock period expired
+    if (user.isLocked && user.lockUntil && user.lockUntil < new Date()) {
+      console.log(`🔓 Auto-unlocking account for ${user.email} - lock period expired`);
+      user.isLocked = false;
+      user.lockUntil = undefined;
+      user.panicMode = false;
+      user.riskScore = 0;
+      user.loginAttempts = 0;
+      await user.save();
+    }
+    
     // Check if account is locked (but allow unlock endpoint)
     if (user.isLocked && req.path !== '/unlock') {
+      const remainingTime = user.lockUntil ? Math.ceil((user.lockUntil - new Date()) / 1000) : 0;
       return res.status(403).json({ 
         error: 'Account is locked',
-        locked: true
+        locked: true,
+        remainingSeconds: remainingTime > 0 ? remainingTime : 0,
+        message: remainingTime > 0 ? `Account locked for ${remainingTime} more seconds` : 'Account is locked'
       });
     }
     

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DDS - Real IP & Map Test</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 2rem;
+      color: white;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 2.5rem;
+      text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .card h2 {
+      margin-bottom: 1.5rem;
+      font-size: 1.5rem;
+    }
+    .info-item {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1rem;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      border-left: 4px solid #10b981;
+    }
+    .info-label {
+      font-size: 0.9rem;
+      opacity: 0.8;
+      margin-bottom: 0.5rem;
+    }
+    .info-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+    #map {
+      height: 600px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    button {
+      width: 100%;
+      padding: 1rem;
+      background: white;
+      color: #667eea;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    .status {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      display: inline-block;
+      font-weight: 600;
+      margin-top: 0.5rem;
+    }
+    .status.success { background: #10b981; color: white; }
+    .status.error { background: #ef4444; color: white; }
+    .full-width { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🗺️ DDS - Real IP & Geolocation Test</h1>
+    
+    <div class="grid">
+      <div class="card">
+        <h2>🌐 Your Real IP Information</h2>
+        <div id="ipInfo">
+          <button onclick="getMyIP()">🔍 Detect My IP</button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h2>📊 Test Statistics</h2>
+        <div class="info-item">
+          <div class="info-label">Total Markers</div>
+          <div class="info-value" id="markerCount">0</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Map Status</div>
+          <div class="info-value" id="mapStatus">Not Initialized</div>
+        </div>
+        <button onclick="simulateAttack()">🚨 Simulate Attack</button>
+        <button onclick="clearMap()">🗑️ Clear Map</button>
+      </div>
+      
+      <div class="card full-width">
+        <h2>🗺️ Live Attack Map</h2>
+        <div id="map"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/map.js"></script>
+  <script>
+    const API_URL = 'http://localhost:5000';
+    let attackMap;
+    let markerCount = 0;
+
+    // Initialize map
+    window.onload = () => {
+      attackMap = new AttackMapManager('map');
+      attackMap.initialize();
+      document.getElementById('mapStatus').textContent = 'Initialized ✅';
+      
+      // Auto-detect IP on load
+      getMyIP();
+    };
+
+    // Get user's real IP
+    async function getMyIP() {
+      try {
+        const response = await fetch(`${API_URL}/ipinfo/myip`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const ipInfoDiv = document.getElementById('ipInfo');
+          const loc = data.location;
+          
+          ipInfoDiv.innerHTML = `
+            <div class="info-item" style="border-left-color: #667eea;">
+              <div class="info-label">🌐 Your IP Address</div>
+              <div class="info-value">${data.ip}</div>
+            </div>
+            
+            ${loc ? `
+              <div class="info-item" style="border-left-color: #10b981;">
+                <div class="info-label">📍 Location</div>
+                <div class="info-value">${loc.city}, ${loc.regionName}</div>
+                <div style="font-size: 0.9rem; margin-top: 0.5rem;">${loc.country} (${loc.countryCode})</div>
+              </div>
+              
+              <div class="info-item" style="border-left-color: #f59e0b;">
+                <div class="info-label">🏢 ISP</div>
+                <div class="info-value">${loc.isp}</div>
+              </div>
+              
+              <div class="info-item" style="border-left-color: #3b82f6;">
+                <div class="info-label">🕐 Timezone</div>
+                <div class="info-value">${loc.timezone}</div>
+              </div>
+              
+              <div class="info-item" style="border-left-color: #ec4899;">
+                <div class="info-label">📌 Coordinates</div>
+                <div class="info-value">${loc.lat}, ${loc.lon}</div>
+              </div>
+              
+              <button onclick="addMyLocationToMap()">📍 Add My Location to Map</button>
+            ` : ''}
+          `;
+          
+          // Store for later use
+          window.myLocation = loc;
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('ipInfo').innerHTML = `
+          <div class="status error">❌ Error: ${error.message}</div>
+          <button onclick="getMyIP()">🔄 Retry</button>
+        `;
+      }
+    }
+
+    // Add user's location to map
+    function addMyLocationToMap() {
+      if (!window.myLocation) return;
+      
+      const attack = {
+        email: 'your@email.com',
+        ipAddress: window.myLocation.query,
+        deviceInfo: navigator.userAgent,
+        attackType: '✅ Your Current Location',
+        riskLevel: 'low',
+        location: window.myLocation,
+        timestamp: new Date(),
+        blocked: false
+      };
+      
+      attackMap.addAttackMarker(attack);
+      markerCount++;
+      document.getElementById('markerCount').textContent = markerCount;
+    }
+
+    // Simulate attack from random location
+    async function simulateAttack() {
+      const testIPs = [
+        '8.8.8.8',        // Google DNS - USA
+        '1.1.1.1',        // Cloudflare - USA
+        '208.67.222.222', // OpenDNS - USA
+        '185.228.168.9',  // Russia
+        '103.21.244.0',   // India
+        '202.12.27.33',   // Japan
+        '80.67.169.12',   // UK
+        '200.221.11.100', // Brazil
+        '41.190.16.1'     // South Africa
+      ];
+      
+      const randomIP = testIPs[Math.floor(Math.random() * testIPs.length)];
+      
+      try {
+        const response = await fetch(`${API_URL}/ipinfo/lookup/${randomIP}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          const riskLevels = ['low', 'medium', 'high', 'critical'];
+          const attackTypes = [
+            '🚨 Brute Force Attack',
+            '⚠️ Multiple Failed Logins',
+            '🌐 Login from New IP',
+            '💻 Unknown Device Access',
+            '✈️ Impossible Travel Detected'
+          ];
+          
+          const attack = {
+            email: 'test@example.com',
+            ipAddress: randomIP,
+            deviceInfo: 'Simulated Attack Device',
+            attackType: attackTypes[Math.floor(Math.random() * attackTypes.length)],
+            riskLevel: riskLevels[Math.floor(Math.random() * riskLevels.length)],
+            location: data.location,
+            timestamp: new Date(),
+            blocked: Math.random() > 0.7
+          };
+          
+          attackMap.addAttackMarker(attack);
+          markerCount++;
+          document.getElementById('markerCount').textContent = markerCount;
+          
+          console.log('✅ Attack simulated:', attack);
+        }
+      } catch (error) {
+        console.error('Error simulating attack:', error);
+      }
+    }
+
+    // Clear all markers
+    function clearMap() {
+      attackMap.clearMarkers();
+      markerCount = 0;
+      document.getElementById('markerCount').textContent = markerCount;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DEBUG - Panic Mode Test</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      background: #1a1a1a;
+      color: #00ff00;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      color: #ff0000;
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 2rem;
+      text-shadow: 0 0 10px #ff0000;
+    }
+    
+    .section {
+      background: #2a2a2a;
+      border: 2px solid #00ff00;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .section h2 {
+      color: #00ffff;
+      margin-bottom: 15px;
+      font-size: 1.3rem;
+    }
+    
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #1a1a1a;
+      border-radius: 4px;
+    }
+    
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #ff0000;
+      animation: pulse 1s infinite;
+    }
+    
+    .status-dot.connected {
+      background: #00ff00;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .log {
+      background: #000;
+      border: 1px solid #00ff00;
+      border-radius: 4px;
+      padding: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    
+    .log-entry {
+      margin-bottom: 5px;
+      padding: 5px;
+      border-left: 3px solid #00ff00;
+      padding-left: 10px;
+    }
+    
+    .log-entry.error {
+      border-left-color: #ff0000;
+      color: #ff0000;
+    }
+    
+    .log-entry.success {
+      border-left-color: #00ff00;
+      color: #00ff00;
+    }
+    
+    .log-entry.warning {
+      border-left-color: #ffff00;
+      color: #ffff00;
+    }
+    
+    .log-entry.info {
+      border-left-color: #00ffff;
+      color: #00ffff;
+    }
+    
+    .btn {
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+    
+    .btn:hover {
+      background: #00cc00;
+      transform: scale(1.05);
+    }
+    
+    .btn.danger {
+      background: #ff0000;
+      color: #fff;
+    }
+    
+    .btn.danger:hover {
+      background: #cc0000;
+    }
+    
+    .btn:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    .info-card {
+      background: #1a1a1a;
+      padding: 15px;
+      border-radius: 4px;
+      border: 1px solid #00ff00;
+    }
+    
+    .info-card .label {
+      color: #888;
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+    }
+    
+    .info-card .value {
+      color: #00ff00;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    
+    .timestamp {
+      color: #666;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚨 PANIC MODE DEBUG CONSOLE 🚨</h1>
+    
+    <div class="section">
+      <h2>📊 CONNECTION STATUS</h2>
+      <div class="status">
+        <div class="status-dot" id="socketStatus"></div>
+        <span id="socketStatusText">Disconnected</span>
+      </div>
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="label">Socket ID</div>
+          <div class="value" id="socketId">-</div>
+        </div>
+        <div class="info-card">
+          <div class="label">User Email</div>
+          <div class="value" id="userEmail" style="font-size: 1rem;">-</div>
+        </div>
+        <div class="info-card">
+          <div class="label">User ID</div>
+          <div class="value" id="userId" style="font-size: 0.9rem;">-</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Token Status</div>
+          <div class="value" id="tokenStatus">-</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="section">
+      <h2>🎮 CONTROLS</h2>
+      <button class="btn" onclick="testConnection()">🔌 Test Connection</button>
+      <button class="btn" onclick="registerUser()">📝 Register Socket</button>
+      <button class="btn danger" onclick="triggerPanicMode()">🚨 TRIGGER PANIC MODE</button>
+      <button class="btn" onclick="clearLogs()">🗑️ Clear Logs</button>
+      <button class="btn" onclick="checkLocalStorage()">💾 Check Storage</button>
+    </div>
+    
+    <div class="section">
+      <h2>📡 SOCKET.IO EVENTS LOG</h2>
+      <div class="log" id="eventLog"></div>
+    </div>
+    
+    <div class="section">
+      <h2>🔍 SYSTEM DIAGNOSTICS</h2>
+      <div class="log" id="diagnosticLog"></div>
+    </div>
+  </div>
+
+  <script>
+    let socket;
+    let eventLogEl = document.getElementById('eventLog');
+    let diagnosticLogEl = document.getElementById('diagnosticLog');
+    
+    // Initialize
+    function init() {
+      addDiagnostic('🚀 Initializing debug console...', 'info');
+      
+      // Check if user is logged in
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (!token || !user) {
+        addDiagnostic('❌ No token/user found in localStorage', 'error');
+        addDiagnostic('⚠️ Please login first at /login.html', 'warning');
+        document.getElementById('tokenStatus').textContent = 'MISSING';
+        document.getElementById('tokenStatus').style.color = '#ff0000';
+        return;
+      }
+      
+      addDiagnostic('✅ Token found in localStorage', 'success');
+      document.getElementById('tokenStatus').textContent = 'VALID';
+      document.getElementById('tokenStatus').style.color = '#00ff00';
+      
+      try {
+        const userData = JSON.parse(user);
+        document.getElementById('userEmail').textContent = userData.email || 'N/A';
+        document.getElementById('userId').textContent = userData.id || 'N/A';
+        addDiagnostic(`✅ User data parsed: ${userData.email}`, 'success');
+      } catch (e) {
+        addDiagnostic('❌ Failed to parse user data', 'error');
+      }
+      
+      // Initialize Socket.IO
+      initSocket();
+    }
+    
+    function initSocket() {
+      addDiagnostic('🔌 Connecting to Socket.IO server...', 'info');
+      
+      socket = io('http://localhost:5000', {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5
+      });
+      
+      // Connection events
+      socket.on('connect', () => {
+        addEvent('✅ CONNECTED to server', 'success');
+        addDiagnostic(`✅ Socket connected: ${socket.id}`, 'success');
+        document.getElementById('socketId').textContent = socket.id;
+        document.getElementById('socketStatus').classList.add('connected');
+        document.getElementById('socketStatusText').textContent = 'Connected';
+        document.getElementById('socketStatusText').style.color = '#00ff00';
+        
+        // Auto-register
+        registerUser();
+      });
+      
+      socket.on('disconnect', () => {
+        addEvent('❌ DISCONNECTED from server', 'error');
+        addDiagnostic('❌ Socket disconnected', 'error');
+        document.getElementById('socketStatus').classList.remove('connected');
+        document.getElementById('socketStatusText').textContent = 'Disconnected';
+        document.getElementById('socketStatusText').style.color = '#ff0000';
+      });
+      
+      socket.on('connected', (data) => {
+        addEvent(`📡 Server says: ${data.message}`, 'info');
+      });
+      
+      // Panic mode event
+      socket.on('force_logout', (data) => {
+        addEvent('🚨🚨🚨 FORCE_LOGOUT EVENT RECEIVED! 🚨🚨🚨', 'error');
+        addEvent(`Email: ${data.email}`, 'warning');
+        addEvent(`UserId: ${data.userId}`, 'warning');
+        addEvent(`Message: ${data.message}`, 'warning');
+        addEvent(`Reason: ${data.reason}`, 'warning');
+        
+        addDiagnostic('🚨 FORCE LOGOUT RECEIVED!', 'error');
+        addDiagnostic(`Target Email: ${data.email}`, 'warning');
+        
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user && data.email === user.email) {
+          addDiagnostic('✅ EMAIL MATCH! Logging out...', 'success');
+          setTimeout(() => {
+            localStorage.clear();
+            window.location.href = 'login.html?reason=panic_mode';
+          }, 3000);
+        } else {
+          addDiagnostic(`❌ Email mismatch: ${data.email} !== ${user?.email}`, 'error');
+        }
+      });
+      
+      // Other events
+      socket.on('securityAlert', (data) => {
+        addEvent(`🚨 Security Alert: ${data.message}`, 'warning');
+      });
+      
+      socket.on('newAttack', (data) => {
+        addEvent(`⚠️ New Attack: ${data.attackType}`, 'warning');
+      });
+      
+      socket.on('panicActivated', (data) => {
+        addEvent(`🚨 Panic Activated: ${data.message}`, 'error');
+      });
+      
+      socket.on('error', (error) => {
+        addEvent(`❌ Socket Error: ${error}`, 'error');
+        addDiagnostic(`❌ Socket error: ${error}`, 'error');
+      });
+    }
+    
+    function registerUser() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        addDiagnostic('❌ Cannot register: No token', 'error');
+        return;
+      }
+      
+      addDiagnostic('📝 Registering user with server...', 'info');
+      socket.emit('register_user', { token });
+      addEvent('📝 Sent register_user event', 'info');
+    }
+    
+    function testConnection() {
+      addDiagnostic('🧪 Testing connection...', 'info');
+      if (socket && socket.connected) {
+        addDiagnostic('✅ Socket is connected', 'success');
+        addDiagnostic(`Socket ID: ${socket.id}`, 'info');
+      } else {
+        addDiagnostic('❌ Socket is NOT connected', 'error');
+      }
+    }
+    
+    async function triggerPanicMode() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        addDiagnostic('❌ Cannot trigger panic: No token', 'error');
+        return;
+      }
+      
+      if (!confirm('⚠️ This will trigger PANIC MODE and logout ALL devices!\n\nContinue?')) {
+        return;
+      }
+      
+      addDiagnostic('🚨 Triggering PANIC MODE...', 'warning');
+      
+      try {
+        const response = await fetch('http://localhost:5000/security/panic', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          addDiagnostic('✅ Panic mode activated successfully!', 'success');
+          addDiagnostic(`Actions: ${data.actions.join(', ')}`, 'info');
+          addEvent('🚨 PANIC MODE ACTIVATED!', 'error');
+        } else {
+          addDiagnostic(`❌ Panic mode failed: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        addDiagnostic(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+    
+    function checkLocalStorage() {
+      addDiagnostic('💾 Checking localStorage...', 'info');
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (token) {
+        addDiagnostic(`✅ Token: ${token.substring(0, 20)}...`, 'success');
+      } else {
+        addDiagnostic('❌ No token found', 'error');
+      }
+      
+      if (user) {
+        addDiagnostic(`✅ User: ${user}`, 'success');
+      } else {
+        addDiagnostic('❌ No user found', 'error');
+      }
+    }
+    
+    function addEvent(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> ${message}`;
+      eventLogEl.insertBefore(entry, eventLogEl.firstChild);
+      
+      // Keep only last 50 entries
+      while (eventLogEl.children.length > 50) {
+        eventLogEl.removeChild(eventLogEl.lastChild);
+      }
+    }
+    
+    function addDiagnostic(message, type = 'info') {
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> ${message}`;
+      diagnosticLogEl.insertBefore(entry, diagnosticLogEl.firstChild);
+      
+      // Keep only last 50 entries
+      while (diagnosticLogEl.children.length > 50) {
+        diagnosticLogEl.removeChild(diagnosticLogEl.lastChild);
+      }
+    }
+    
+    function clearLogs() {
+      eventLogEl.innerHTML = '';
+      diagnosticLogEl.innerHTML = '';
+      addDiagnostic('🗑️ Logs cleared', 'info');
+    }
+    
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

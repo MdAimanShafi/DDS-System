@@ -12,31 +12,69 @@ const activeUserSessions = new Map(); // userId -> Set of socketIds
 
 const getLocationFromIP = async (ip) => {
   try {
-    if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') {
-      return { 
-        country: 'Local', 
-        city: 'Localhost', 
-        lat: 40.7128, 
-        lon: -74.0060,
-        region: 'Local Network'
-      };
+    // Handle localhost IPs
+    if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1' || ip.includes('127.0.0.1')) {
+      // Get real public IP for localhost
+      try {
+        const publicIPResponse = await axios.get('https://api.ipify.org?format=json', { timeout: 3000 });
+        const publicIP = publicIPResponse.data.ip;
+        console.log(`🌐 Localhost detected, using public IP: ${publicIP}`);
+        ip = publicIP;
+      } catch (error) {
+        console.log('⚠️ Could not fetch public IP, using default location');
+        return { 
+          country: 'India', 
+          city: 'Mumbai', 
+          lat: 19.0760, 
+          lon: 72.8777,
+          region: 'Maharashtra',
+          timezone: 'Asia/Kolkata',
+          isp: 'Local Network'
+        };
+      }
     }
     
-    const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,city,lat,lon,regionName`);
+    // Use ip-api.com for geolocation (free, no API key needed)
+    console.log(`📍 Fetching location for IP: ${ip}`);
+    const response = await axios.get(
+      `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query`,
+      { timeout: 5000 }
+    );
     
     if (response.data.status === 'success') {
-      return {
+      const location = {
         country: response.data.country || 'Unknown',
+        countryCode: response.data.countryCode || 'XX',
         city: response.data.city || 'Unknown',
+        region: response.data.regionName || 'Unknown',
         lat: response.data.lat || 0,
         lon: response.data.lon || 0,
-        region: response.data.regionName || 'Unknown'
+        timezone: response.data.timezone || 'UTC',
+        isp: response.data.isp || 'Unknown ISP',
+        org: response.data.org || 'Unknown',
+        zip: response.data.zip || 'N/A'
       };
+      console.log(`✅ Location found: ${location.city}, ${location.country}`);
+      return location;
+    } else {
+      console.log(`⚠️ IP-API returned: ${response.data.message}`);
+      throw new Error(response.data.message || 'Location lookup failed');
     }
-    
-    return { country: 'Unknown', city: 'Unknown', lat: 0, lon: 0, region: 'Unknown' };
   } catch (error) {
-    return { country: 'Unknown', city: 'Unknown', lat: 0, lon: 0, region: 'Unknown' };
+    console.error('❌ Error fetching location:', error.message);
+    // Return default location on error
+    return { 
+      country: 'Unknown', 
+      countryCode: 'XX',
+      city: 'Unknown', 
+      region: 'Unknown',
+      lat: 0, 
+      lon: 0,
+      timezone: 'UTC',
+      isp: 'Unknown',
+      org: 'Unknown',
+      zip: 'N/A'
+    };
   }
 };
 
@@ -51,26 +89,42 @@ const logAttack = async (email, ip, device, attackType, riskLevel, io) => {
       attackType,
       riskLevel,
       location,
-      blocked: blockedIPs.has(ip)
+      blocked: blockedIPs.has(ip),
+      timestamp: new Date()
     });
     
+    console.log(`🚨 Attack logged: ${attackType} from ${location.city}, ${location.country}`);
+    
     if (io) {
+      // Emit security alert
       io.emit('securityAlert', {
         message: `${attackType}`,
         email,
         ip,
         location: `${location.city}, ${location.country}`,
+        fullLocation: location,
         riskLevel,
         timestamp: new Date(),
         attackId: log._id
       });
       
-      io.emit('newAttack', log);
+      // Emit new attack with full details
+      io.emit('newAttack', {
+        _id: log._id,
+        email,
+        ipAddress: ip,
+        deviceInfo: device,
+        attackType,
+        riskLevel,
+        location,
+        timestamp: new Date(),
+        blocked: blockedIPs.has(ip)
+      });
     }
     
     return log;
   } catch (error) {
-    console.error('Error logging attack:', error);
+    console.error('❌ Error logging attack:', error);
     return null;
   }
 };
@@ -111,18 +165,19 @@ exports.panic = async (req, res) => {
     }
     
     // 3. Update user security state
-    // Lock the account and require a password change to re-enable
+    // Lock the account for 1 minute only
     user.isLocked = true;
     user.panicMode = true;
-    user.requiresVerification = true;
-    user.requiresPasswordChange = true;
+    user.requiresVerification = false; // No verification needed
+    user.requiresPasswordChange = false; // No password change needed
     user.knownIPs = [];
     user.knownDevices = [];
     user.riskScore = 100;
     user.panicActivatedAt = new Date();
+    user.lockUntil = new Date(Date.now() + 1 * 60 * 1000); // Lock for 1 minute
     user.activeSessions = []; // Clear all sessions
     
-    // Generate verification code for re-login
+    // Generate verification code for re-login (optional)
     const verificationCode = crypto.randomBytes(3).toString('hex').toUpperCase();
     user.verificationCode = verificationCode;
     user.verificationExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
@@ -149,7 +204,19 @@ exports.panic = async (req, res) => {
     // 5. Log attack
     await logAttack(user.email, ip, device, '🚨 PANIC BUTTON ACTIVATED - SECURITY LOCKDOWN', 'critical', io);
     
-    // 6. Emit global force logout event to ALL user's sessions
+    // 6. Emit global force logout event to ALL user's sessions (EMAIL-BASED)
+    console.log(`📧 Emitting force_logout to ALL devices with email: ${user.email}`);
+    
+    // Emit to email-based room (ALL devices with this email)
+    io.to(`email_${user.email}`).emit('force_logout', {
+      userId: user._id.toString(),
+      email: user.email,
+      message: 'Security lockdown activated. All sessions terminated.',
+      reason: 'panic_mode',
+      timestamp: new Date()
+    });
+    
+    // Also emit globally as backup
     io.emit('force_logout', {
       userId: user._id.toString(),
       email: user.email,
@@ -170,18 +237,20 @@ exports.panic = async (req, res) => {
     console.log(`   - Sessions terminated: ${user.activeSessions.length || 0}`);
     console.log(`   - Verification code: ${verificationCode}`);
     console.log(`   - IP blocked: ${ip}`);
+    console.log(`   - Account locked for: 1 minute`);
     
     res.json({ 
       success: true,
-      message: 'Security lockdown activated',
+      message: 'Security lockdown activated for 1 minute',
       verificationCode, // In production, send via email/SMS
+      lockDuration: '1 minute',
       actions: [
-        'Account locked',
-        'All sessions terminated globally',
+        'Account locked for 1 minute',
+        'All sessions terminated globally from ALL devices',
         'All tokens invalidated',
         'Suspicious IP blocked for 1 minute',
         'Trusted devices cleared',
-        'Verification required for re-login'
+        'You can login again after 1 minute'
       ],
       status: 'LOCKDOWN_ACTIVE'
     });

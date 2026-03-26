@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SIMPLE LOGOUT TEST</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 20px;
+      background: #000;
+      color: #0f0;
+    }
+    h1 { color: #f00; }
+    .box {
+      background: #111;
+      border: 2px solid #0f0;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 10px;
+    }
+    .status {
+      font-size: 24px;
+      font-weight: bold;
+      padding: 10px;
+      margin: 10px 0;
+    }
+    .connected { color: #0f0; }
+    .disconnected { color: #f00; }
+    button {
+      background: #f00;
+      color: #fff;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
+      margin: 10px 5px;
+    }
+    button:hover { background: #c00; }
+    #log {
+      background: #000;
+      border: 1px solid #0f0;
+      padding: 15px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .log-line {
+      margin: 5px 0;
+      padding: 5px;
+      border-left: 3px solid #0f0;
+      padding-left: 10px;
+    }
+    .error { border-left-color: #f00; color: #f00; }
+    .success { border-left-color: #0f0; color: #0f0; }
+    .warning { border-left-color: #ff0; color: #ff0; }
+  </style>
+</head>
+<body>
+  <h1>🚨 PANIC MODE LOGOUT TEST 🚨</h1>
+  
+  <div class="box">
+    <h2>📊 STATUS</h2>
+    <div class="status" id="status">⚪ Not Connected</div>
+    <div>Email: <span id="email" style="color: #ff0;">-</span></div>
+    <div>Socket ID: <span id="socketId" style="color: #0ff;">-</span></div>
+  </div>
+  
+  <div class="box">
+    <h2>🎮 CONTROLS</h2>
+    <button onclick="connect()">🔌 CONNECT</button>
+    <button onclick="triggerPanic()">🚨 PANIC BUTTON</button>
+    <button onclick="clearLog()">🗑️ CLEAR LOG</button>
+  </div>
+  
+  <div class="box">
+    <h2>📡 EVENT LOG</h2>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    let socket;
+    const logEl = document.getElementById('log');
+    
+    function log(msg, type = 'success') {
+      const line = document.createElement('div');
+      line.className = `log-line ${type}`;
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      logEl.insertBefore(line, logEl.firstChild);
+    }
+    
+    function connect() {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (!token || !user) {
+        log('❌ NO TOKEN! Please login first at /login.html', 'error');
+        alert('Please login first!\n\nGo to: http://localhost:5000/login.html');
+        return;
+      }
+      
+      const userData = JSON.parse(user);
+      document.getElementById('email').textContent = userData.email;
+      
+      log('🔌 Connecting to Socket.IO...', 'warning');
+      
+      socket = io('http://localhost:5000', {
+        transports: ['websocket', 'polling']
+      });
+      
+      socket.on('connect', () => {
+        log('✅ CONNECTED!', 'success');
+        document.getElementById('status').textContent = '🟢 CONNECTED';
+        document.getElementById('status').className = 'status connected';
+        document.getElementById('socketId').textContent = socket.id;
+        
+        // Register user
+        socket.emit('register_user', { token });
+        log(`📝 Registered with email: ${userData.email}`, 'success');
+      });
+      
+      socket.on('disconnect', () => {
+        log('❌ DISCONNECTED', 'error');
+        document.getElementById('status').textContent = '🔴 DISCONNECTED';
+        document.getElementById('status').className = 'status disconnected';
+      });
+      
+      // MOST IMPORTANT: Listen for force_logout
+      socket.on('force_logout', (data) => {
+        log('🚨🚨🚨 FORCE LOGOUT RECEIVED! 🚨🚨🚨', 'error');
+        log(`Email: ${data.email}`, 'warning');
+        log(`Message: ${data.message}`, 'warning');
+        
+        const currentUser = JSON.parse(localStorage.getItem('user'));
+        
+        if (data.email === currentUser.email) {
+          log('✅ EMAIL MATCH! LOGGING OUT IN 3 SECONDS...', 'success');
+          
+          setTimeout(() => {
+            localStorage.clear();
+            sessionStorage.clear();
+            socket.disconnect();
+            window.location.href = 'login.html?reason=panic_mode';
+          }, 3000);
+        } else {
+          log(`❌ Email mismatch: ${data.email} !== ${currentUser.email}`, 'error');
+        }
+      });
+      
+      socket.on('error', (err) => {
+        log(`❌ Socket Error: ${err}`, 'error');
+      });
+    }
+    
+    async function triggerPanic() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        log('❌ No token! Login first.', 'error');
+        return;
+      }
+      
+      if (!confirm('⚠️ TRIGGER PANIC MODE?\n\nThis will logout ALL devices!')) {
+        return;
+      }
+      
+      log('🚨 Triggering PANIC MODE...', 'warning');
+      
+      try {
+        const response = await fetch('http://localhost:5000/security/panic', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          log('✅ PANIC MODE ACTIVATED!', 'success');
+          log(`Actions: ${data.actions.join(', ')}`, 'success');
+        } else {
+          log(`❌ Failed: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+    
+    function clearLog() {
+      logEl.innerHTML = '';
+    }
+    
+    // Auto-connect on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        log('✅ Token found! Click CONNECT button.', 'success');
+      } else {
+        log('❌ No token! Login first at /login.html', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

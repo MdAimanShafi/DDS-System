@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panic Mode Test - DDS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 3rem;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    h1 {
+      color: #ef4444;
+      font-size: 2.5rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    
+    .subtitle {
+      text-align: center;
+      color: #6b7280;
+      margin-bottom: 2rem;
+      font-size: 1.1rem;
+    }
+    
+    .test-section {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+    
+    .test-section h2 {
+      color: #1f2937;
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+    }
+    
+    .test-steps {
+      list-style: none;
+      counter-reset: step-counter;
+    }
+    
+    .test-steps li {
+      counter-increment: step-counter;
+      margin-bottom: 1rem;
+      padding-left: 3rem;
+      position: relative;
+      color: #4b5563;
+      line-height: 1.6;
+    }
+    
+    .test-steps li::before {
+      content: counter(step-counter);
+      position: absolute;
+      left: 0;
+      top: 0;
+      background: #667eea;
+      color: white;
+      width: 2rem;
+      height: 2rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+    
+    .feature-box {
+      background: white;
+      border-left: 4px solid #10b981;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+    }
+    
+    .feature-box h3 {
+      color: #10b981;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    
+    .feature-box p {
+      color: #6b7280;
+      line-height: 1.6;
+    }
+    
+    .warning-box {
+      background: #fef2f2;
+      border-left: 4px solid #ef4444;
+      padding: 1rem;
+      margin-bottom: 2rem;
+      border-radius: 8px;
+    }
+    
+    .warning-box h3 {
+      color: #ef4444;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    
+    .warning-box p {
+      color: #991b1b;
+      line-height: 1.6;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      font-weight: bold;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: none;
+      font-size: 1.1rem;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin-right: 1rem;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-danger {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+    
+    .status-active {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .status-locked {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .timer {
+      font-size: 3rem;
+      font-weight: bold;
+      text-align: center;
+      color: #ef4444;
+      margin: 2rem 0;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .info-card {
+      background: white;
+      padding: 1rem;
+      border-radius: 8px;
+      text-align: center;
+      border: 2px solid #e5e7eb;
+    }
+    
+    .info-card .label {
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .info-card .value {
+      color: #1f2937;
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚨 PANIC MODE TEST</h1>
+    <p class="subtitle">Test the 1-minute lock and global logout system</p>
+    
+    <div class="warning-box">
+      <h3>⚠️ Important Notice</h3>
+      <p>This test will lock your account for 1 MINUTE and logout ALL devices. Make sure you understand the process before testing.</p>
+    </div>
+    
+    <div class="test-section">
+      <h2>📋 Test Instructions</h2>
+      <ol class="test-steps">
+        <li>Open TWO different browsers (e.g., Chrome and Firefox)</li>
+        <li>Login to the SAME account on BOTH browsers</li>
+        <li>On Browser 1, go to Dashboard and click "🚨 PANIC BUTTON"</li>
+        <li>Observe: BOTH browsers should logout INSTANTLY</li>
+        <li>Wait for 1 MINUTE (60 seconds)</li>
+        <li>Try to login again - it should work WITHOUT verification</li>
+      </ol>
+    </div>
+    
+    <div class="test-section">
+      <h2>✨ Expected Results</h2>
+      
+      <div class="feature-box">
+        <h3>✅ Instant Global Logout</h3>
+        <p>All devices should logout simultaneously when panic button is pressed. No device should remain logged in.</p>
+      </div>
+      
+      <div class="feature-box">
+        <h3>✅ 1 Minute Lock</h3>
+        <p>Account should be locked for exactly 60 seconds. After that, login should work automatically.</p>
+      </div>
+      
+      <div class="feature-box">
+        <h3>✅ Auto-Unlock</h3>
+        <p>System automatically unlocks the account after 1 minute. No manual intervention needed.</p>
+      </div>
+      
+      <div class="feature-box">
+        <h3>✅ No Verification Required</h3>
+        <p>User can directly login after 1 minute without entering any verification code.</p>
+      </div>
+    </div>
+    
+    <div class="test-section">
+      <h2>🎯 What Gets Cleared</h2>
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="label">All Tokens</div>
+          <div class="value">❌</div>
+        </div>
+        <div class="info-card">
+          <div class="label">All Sessions</div>
+          <div class="value">❌</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Trusted Devices</div>
+          <div class="value">❌</div>
+        </div>
+        <div class="info-card">
+          <div class="label">Trusted IPs</div>
+          <div class="value">❌</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="test-section">
+      <h2>⏱️ Timeline</h2>
+      <div class="timer" id="timer">00:00</div>
+      <div style="text-align: center; color: #6b7280;">
+        <p id="status">Ready to test</p>
+      </div>
+    </div>
+    
+    <div class="button-group">
+      <a href="login.html" class="btn btn-primary">Go to Login</a>
+      <a href="dashboard.html" class="btn btn-danger">Go to Dashboard</a>
+    </div>
+    
+    <div class="test-section" style="margin-top: 2rem;">
+      <h2>🔧 Technical Details</h2>
+      <ul style="list-style: none; color: #6b7280; line-height: 2;">
+        <li>📁 <strong>Modified Files:</strong> 5 files</li>
+        <li>⏰ <strong>Lock Duration:</strong> 1 minute (60 seconds)</li>
+        <li>🔄 <strong>Auto-Unlock:</strong> Enabled</li>
+        <li>🌐 <strong>Global Logout:</strong> Socket.IO based</li>
+        <li>🔐 <strong>Token Expiry:</strong> 1 minute</li>
+        <li>📊 <strong>Risk Score:</strong> Reset to 0 after unlock</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script>
+    let startTime = null;
+    let timerInterval = null;
+    
+    function startTimer() {
+      startTime = Date.now();
+      document.getElementById('status').textContent = 'Account locked - waiting for auto-unlock...';
+      
+      timerInterval = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const remaining = Math.max(0, 60 - elapsed);
+        
+        const minutes = Math.floor(remaining / 60);
+        const seconds = remaining % 60;
+        
+        document.getElementById('timer').textContent = 
+          `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        
+        if (remaining === 0) {
+          clearInterval(timerInterval);
+          document.getElementById('status').textContent = '✅ Account unlocked! You can login now.';
+          document.getElementById('timer').style.color = '#10b981';
+        }
+      }, 100);
+    }
+    
+    // Auto-start timer if coming from panic mode
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('panic') === 'true') {
+      startTimer();
+    }
+    
+    // Listen for storage events (logout detection)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'token' && !e.newValue) {
+        console.log('🔐 Logout detected - starting timer');
+        startTimer();
+      }
+    });
+  </script>
+</body>
+</html>

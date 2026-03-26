@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "DDS Panic Button - Universal Logout",
+  "version": "1.0.0",
+  "description": "Emergency logout from all major websites with one click",
+  "permissions": [
+    "cookies",
+    "tabs",
+    "browsingData",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost/*",
+    "https://*.google.com/*",
+    "https://*.youtube.com/*",
+    "https://*.gmail.com/*",
+    "https://*.live.com/*",
+    "https://*.outlook.com/*",
+    "https://*.microsoft.com/*",
+    "https://*.yahoo.com/*",
+    "https://*.proton.me/*",
+    "https://*.protonmail.com/*",
+    "https://*.facebook.com/*",
+    "https://*.instagram.com/*",
+    "https://*.twitter.com/*",
+    "https://*.x.com/*",
+    "https://*.linkedin.com/*",
+    "https://*.snapchat.com/*",
+    "https://*.whatsapp.com/*",
+    "https://*.telegram.org/*",
+    "https://*.discord.com/*",
+    "https://*.netflix.com/*",
+    "https://*.amazon.com/*",
+    "https://*.primevideo.com/*",
+    "https://*.spotify.com/*",
+    "https://*.dropbox.com/*",
+    "https://*.github.com/*",
+    "https://*.gitlab.com/*",
+    "https://*.stackoverflow.com/*",
+    "https://*.vercel.com/*",
+    "https://*.netlify.com/*"
+  ],
+  "externally_connectable": {
+    "matches": ["http://localhost/*", "http://127.0.0.1/*"]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

@@ -5,35 +5,74 @@ const AttackLog = require('../models/AttackLog');
 const SecurityEvent = require('../models/SecurityEvent');
 const riskEngine = require('../utils/riskEngine');
 const securityController = require('./securityController');
+const { checkGeoFence } = require('./geoFenceController');
 const axios = require('axios');
 
 const getLocationFromIP = async (ip) => {
   try {
-    if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1') {
-      return { 
-        country: 'Local', 
-        city: 'Localhost', 
-        lat: 40.7128, 
-        lon: -74.0060,
-        region: 'Local Network'
-      };
+    // Handle localhost IPs
+    if (ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1' || ip.includes('127.0.0.1')) {
+      // Get real public IP for localhost
+      try {
+        const publicIPResponse = await axios.get('https://api.ipify.org?format=json', { timeout: 3000 });
+        const publicIP = publicIPResponse.data.ip;
+        console.log(`🌐 Localhost detected, using public IP: ${publicIP}`);
+        ip = publicIP;
+      } catch (error) {
+        console.log('⚠️ Could not fetch public IP, using default location');
+        return { 
+          country: 'India', 
+          city: 'Mumbai', 
+          lat: 19.0760, 
+          lon: 72.8777,
+          region: 'Maharashtra',
+          timezone: 'Asia/Kolkata',
+          isp: 'Local Network'
+        };
+      }
     }
     
-    const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,city,lat,lon,regionName`);
+    // Use ip-api.com for geolocation (free, no API key needed)
+    console.log(`📍 Fetching location for IP: ${ip}`);
+    const response = await axios.get(
+      `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query`,
+      { timeout: 5000 }
+    );
     
     if (response.data.status === 'success') {
-      return {
+      const location = {
         country: response.data.country || 'Unknown',
+        countryCode: response.data.countryCode || 'XX',
         city: response.data.city || 'Unknown',
+        region: response.data.regionName || 'Unknown',
         lat: response.data.lat || 0,
         lon: response.data.lon || 0,
-        region: response.data.regionName || 'Unknown'
+        timezone: response.data.timezone || 'UTC',
+        isp: response.data.isp || 'Unknown ISP',
+        org: response.data.org || 'Unknown',
+        zip: response.data.zip || 'N/A'
       };
+      console.log(`✅ Location found: ${location.city}, ${location.country}`);
+      return location;
+    } else {
+      console.log(`⚠️ IP-API returned: ${response.data.message}`);
+      throw new Error(response.data.message || 'Location lookup failed');
     }
-    
-    return { country: 'Unknown', city: 'Unknown', lat: 0, lon: 0, region: 'Unknown' };
   } catch (error) {
-    return { country: 'Unknown', city: 'Unknown', lat: 0, lon: 0, region: 'Unknown' };
+    console.error('❌ Error fetching location:', error.message);
+    // Return default location on error
+    return { 
+      country: 'Unknown', 
+      countryCode: 'XX',
+      city: 'Unknown', 
+      region: 'Unknown',
+      lat: 0, 
+      lon: 0,
+      timezone: 'UTC',
+      isp: 'Unknown',
+      org: 'Unknown',
+      zip: 'N/A'
+    };
   }
 };
 
@@ -106,9 +145,10 @@ exports.register = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, email: user.email }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '24h' }
+      { expiresIn: '1m' }
     );
     
+    // Store initial session
     user.activeSessions.push({
       token,
       deviceInfo: device,
@@ -163,6 +203,19 @@ exports.login = async (req, res) => {
     if (!user) {
       await logAttack(email, ip, device, '❌ Failed login - User not found', 'low', io);
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // Auto-unlock if lock period expired
+    if (user.isLocked && user.lockUntil && user.lockUntil < new Date()) {
+      console.log(`🔓 Auto-unlocking account for ${user.email} - lock period expired`);
+      user.isLocked = false;
+      user.lockUntil = undefined;
+      user.panicMode = false;
+      user.riskScore = 0;
+      user.loginAttempts = 0;
+      user.requiresVerification = false;
+      user.requiresPasswordChange = false;
+      await user.save();
     }
     
     // Check if account requires verification after panic mode
@@ -231,7 +284,7 @@ exports.login = async (req, res) => {
       };
       
       const riskResult = riskEngine.calculateRiskScore(riskFactors);
-      const riskScore = riskResult.score;
+      const riskScore = typeof riskResult === 'object' ? riskResult.score : riskResult;
       const riskLevel = riskEngine.getRiskLevel(riskScore);
       
       if (user.loginAttempts >= 5) {
@@ -261,6 +314,20 @@ exports.login = async (req, res) => {
     
     // Successful password match - check risk
     const successLocation = await getLocationFromIP(ip);
+
+    // ── GEO-FENCE CHECK ──────────────────────────────────────────────────
+    if (user.geoFencingEnabled && user.trustedLocations.length > 0 && successLocation.lat) {
+      const geoResult = checkGeoFence(user, successLocation.lat, successLocation.lon);
+      if (geoResult.blocked) {
+        await logAttack(email, ip, device, '🌍 GEO-FENCE BLOCKED: Login from untrusted location', 'critical', io);
+        return res.status(403).json({
+          error: 'Login blocked by Geo-Fencing: You are outside all trusted locations.',
+          geoBlocked: true,
+          currentLocation: `${successLocation.city}, ${successLocation.country}`
+        });
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────
     const impossibleTravelSuccess = riskEngine.detectImpossibleTravel(
       user.lastLoginLocation, 
       successLocation, 
@@ -277,9 +344,9 @@ exports.login = async (req, res) => {
     };
     
     const successRiskResult = riskEngine.calculateRiskScore(successRiskFactors);
-    const riskScore = successRiskResult.score;
+    const riskScore = typeof successRiskResult === 'object' ? successRiskResult.score : successRiskResult;
     const riskLevel = riskEngine.getRiskLevel(riskScore);
-    const riskReasons = successRiskResult.reasons;
+    const riskReasons = typeof successRiskResult === 'object' ? successRiskResult.reasons : [];
     
     user.riskScore = riskScore;
     
@@ -374,7 +441,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, email: user.email }, 
       process.env.JWT_SECRET, 
-      { expiresIn: '24h' }
+      { expiresIn: '1m' }
     );
     
     user.activeSessions.push({
